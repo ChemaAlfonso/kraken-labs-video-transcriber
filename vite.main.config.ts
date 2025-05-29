@@ -6,6 +6,10 @@ export default defineConfig({
 			'@': __dirname + '/src'
 		}
 	},
+	define: {
+		// Fix fluent-ffmpeg lib-cov issue
+		'process.env.FLUENTFFMPEG_COV': '""'
+	},
 	build: {
 		target: 'node14',
 		lib: {

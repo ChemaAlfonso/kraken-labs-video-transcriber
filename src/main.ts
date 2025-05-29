@@ -440,9 +440,10 @@ ipcMain.handle('save-result', async (_, data) => {
 	try {
 		console.log('💾 Saving transcription result to database...')
 
-		// Map frontend fields to database fields
+		// Map frontend fields to database fields and add current date
 		const dbData = {
 			...data,
+			date: new Date().toISOString(), // Add current timestamp
 			index_content: data.index // Map index to index_content for database
 		}
 

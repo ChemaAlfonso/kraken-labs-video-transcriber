@@ -10,7 +10,8 @@ module.exports = {
 		appBundleId: 'com.krakenlabs.videotranscriber',
 		appCategoryType: 'public.app-category.productivity',
 		ignore: [],
-		asarUnpack: ['node_modules/@ffmpeg-installer', 'node_modules/better-sqlite3'],
+		// Use extraResource for FFmpeg binaries (this was working)
+		extraResource: ['node_modules/@ffmpeg-installer/'],
 		...(process.platform === 'darwin' && {
 			icon: './src/assets/icons/kkvideo.icns'
 		}),

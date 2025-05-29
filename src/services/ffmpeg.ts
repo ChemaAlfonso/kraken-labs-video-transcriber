@@ -1,37 +1,216 @@
-import ffmpeg from 'fluent-ffmpeg'
+// Set FLUENTFFMPEG_COV to false to avoid the lib-cov issue
+process.env.FLUENTFFMPEG_COV = ''
+
+// Robust import of fluent-ffmpeg
+let ffmpeg: any
+try {
+	// Try to import fluent-ffmpeg safely
+	const fluentFfmpeg = require('fluent-ffmpeg')
+	ffmpeg = fluentFfmpeg.default || fluentFfmpeg
+	console.log('Successfully imported fluent-ffmpeg')
+} catch (err) {
+	console.error('Failed to import fluent-ffmpeg:', err)
+	throw new Error('fluent-ffmpeg could not be imported')
+}
+
 import * as fs from 'fs'
 import * as path from 'path'
 import { app } from 'electron'
 import { spawn } from 'child_process'
 import * as ffmpegInstaller from '@ffmpeg-installer/ffmpeg'
 
-// Set the ffmpeg path from the bundled binary
-ffmpeg.setFfmpegPath(ffmpegInstaller.path)
+// Global flag to track if FFmpeg has been properly initialized
+let ffmpegInitialized = false
 
-// Try to find and set ffprobe path - it's usually bundled with FFmpeg
-const ffmpegDir = path.dirname(ffmpegInstaller.path)
-const possibleFFprobePaths = [
-	path.join(ffmpegDir, 'ffprobe'),
-	path.join(ffmpegDir, 'ffprobe.exe'),
-	ffmpegInstaller.path.replace('ffmpeg', 'ffprobe'),
-	ffmpegInstaller.path.replace('ffmpeg.exe', 'ffprobe.exe')
-]
+// Function to get the correct FFmpeg path depending on whether we're packaged or not
+function getFFmpegPath(): string {
+	const isDev = !app.isPackaged
 
-let ffprobePath: string | null = null
-for (const probePath of possibleFFprobePaths) {
-	if (fs.existsSync(probePath)) {
-		ffprobePath = probePath
-		ffmpeg.setFfprobePath(probePath)
-		console.log('Found and set FFprobe path:', probePath)
-		break
+	if (isDev) {
+		// In development, use the installed path from @ffmpeg-installer
+		console.log('Development mode: using FFmpeg from @ffmpeg-installer:', ffmpegInstaller.path)
+		return ffmpegInstaller.path
+	} else {
+		// In packaged app, use extraResource location
+		console.log('Packaged mode: using extraResource approach')
+
+		// Check extraResource location first
+		const resourcesPath = process.resourcesPath
+		const extraResourcesPaths = [
+			// macOS extraResources location (extraResource puts files directly in Resources/)
+			path.join(resourcesPath, '@ffmpeg-installer', 'darwin-arm64', 'ffmpeg'),
+			path.join(resourcesPath, '@ffmpeg-installer', 'linux-x64', 'ffmpeg'),
+			path.join(resourcesPath, '@ffmpeg-installer', 'win32-x64', 'ffmpeg.exe')
+		]
+
+		for (const resourcePath of extraResourcesPaths) {
+			if (fs.existsSync(resourcePath)) {
+				console.log('Found FFmpeg in extraResources at:', resourcePath)
+				return resourcePath
+			}
+		}
+
+		// Fallback: try app.asar.unpacked approach
+		const unpackedPath = ffmpegInstaller.path.replace('app.asar', 'app.asar.unpacked')
+		if (fs.existsSync(unpackedPath)) {
+			console.log('Found FFmpeg in app.asar.unpacked at:', unpackedPath)
+			return unpackedPath
+		}
+
+		// Final fallback: check if the original installer path works
+		if (fs.existsSync(ffmpegInstaller.path)) {
+			console.log('Using original installer path:', ffmpegInstaller.path)
+			return ffmpegInstaller.path
+		}
+
+		// Final fallback
+		console.warn('Could not find FFmpeg binary, using installer path as fallback:', ffmpegInstaller.path)
+		return ffmpegInstaller.path
 	}
 }
 
-if (!ffprobePath) {
-	console.log('FFprobe not found in expected locations, letting fluent-ffmpeg auto-discover')
+// Function to get the correct FFprobe path
+function getFFprobePath(): string | null {
+	const ffmpegPath = getFFmpegPath()
+	const ffmpegDir = path.dirname(ffmpegPath)
+
+	const possibleFFprobePaths = [
+		path.join(ffmpegDir, 'ffprobe'),
+		path.join(ffmpegDir, 'ffprobe.exe'),
+		ffmpegPath.replace('ffmpeg', 'ffprobe'),
+		ffmpegPath.replace('ffmpeg.exe', 'ffprobe.exe')
+	]
+
+	for (const probePath of possibleFFprobePaths) {
+		if (fs.existsSync(probePath)) {
+			console.log('Found FFprobe at:', probePath)
+			return probePath
+		}
+	}
+
+	console.log('FFprobe not found in expected locations')
+	return null
 }
 
-console.log('FFmpeg binary path:', ffmpegInstaller.path)
+// Function to initialize FFmpeg with proper paths
+async function initializeFFmpeg(): Promise<void> {
+	if (ffmpegInitialized) {
+		return
+	}
+
+	console.log('Initializing FFmpeg...')
+
+	const ffmpegPath = getFFmpegPath()
+	const ffprobePath = getFFprobePath()
+
+	// Verify the binary exists and is executable
+	if (!fs.existsSync(ffmpegPath)) {
+		throw new Error(`FFmpeg binary not found at: ${ffmpegPath}`)
+	}
+
+	// Check if the binary is executable
+	try {
+		const stats = fs.statSync(ffmpegPath)
+		if (!stats.isFile()) {
+			throw new Error(`FFmpeg path is not a file: ${ffmpegPath}`)
+		}
+
+		// Check if we can read the file
+		fs.accessSync(ffmpegPath, fs.constants.R_OK | fs.constants.X_OK)
+	} catch (err) {
+		console.error('FFmpeg binary access error:', err)
+		throw new Error(`FFmpeg binary is not accessible: ${ffmpegPath}`)
+	}
+
+	console.log('Setting FFmpeg path:', ffmpegPath)
+	ffmpeg.setFfmpegPath(ffmpegPath)
+
+	if (ffprobePath) {
+		console.log('Setting FFprobe path:', ffprobePath)
+		ffmpeg.setFfprobePath(ffprobePath)
+	} else {
+		console.log('FFprobe not found, letting fluent-ffmpeg auto-discover')
+	}
+
+	// Test the binary by running a simple command
+	try {
+		await new Promise<void>((resolve, reject) => {
+			const testProcess = spawn(ffmpegPath, ['-version'], {
+				stdio: ['ignore', 'pipe', 'pipe']
+			})
+
+			let hasResponded = false
+
+			testProcess.on('close', code => {
+				if (hasResponded) return
+				hasResponded = true
+
+				if (code === 0) {
+					console.log('FFmpeg binary test successful')
+					resolve()
+				} else {
+					reject(new Error(`FFmpeg binary test failed with code: ${code}`))
+				}
+			})
+
+			testProcess.on('error', err => {
+				if (hasResponded) return
+				hasResponded = true
+				reject(new Error(`FFmpeg binary test error: ${err.message}`))
+			})
+
+			// Timeout after 5 seconds
+			setTimeout(() => {
+				if (hasResponded) return
+				hasResponded = true
+				testProcess.kill()
+				reject(new Error('FFmpeg binary test timed out'))
+			}, 5000)
+		})
+	} catch (err) {
+		console.error('FFmpeg initialization test failed:', err)
+		throw err
+	}
+
+	ffmpegInitialized = true
+	console.log('FFmpeg initialization completed successfully')
+}
+
+// Debug function to log path information
+function debugFFmpegPaths() {
+	console.log('=== FFmpeg Path Debug Info ===')
+	console.log('app.isPackaged:', app.isPackaged)
+	console.log('process.resourcesPath:', process.resourcesPath)
+	console.log('@ffmpeg-installer path:', ffmpegInstaller.path)
+	console.log('Resolved FFmpeg path:', getFFmpegPath())
+	console.log('Resolved FFprobe path:', getFFprobePath())
+	console.log('FFmpeg exists:', fs.existsSync(getFFmpegPath()))
+
+	if (getFFprobePath()) {
+		console.log('FFprobe exists:', fs.existsSync(getFFprobePath()!))
+	}
+
+	// Try to get permissions on the binary
+	try {
+		const stats = fs.statSync(getFFmpegPath())
+		console.log('FFmpeg file stats:', {
+			isFile: stats.isFile(),
+			mode: stats.mode.toString(8),
+			size: stats.size
+		})
+	} catch (err) {
+		console.error('Error reading FFmpeg file stats:', err)
+	}
+	console.log('=== End FFmpeg Debug Info ===')
+}
+
+// Call debug function immediately
+debugFFmpegPaths()
+
+// Initialize FFmpeg when the module loads (but don't await it to avoid blocking)
+initializeFFmpeg().catch(err => {
+	console.error('Failed to initialize FFmpeg during module load:', err)
+})
 
 interface BinaryInfo {
 	ffmpegPath: string
@@ -45,97 +224,28 @@ interface BinaryInfo {
  * Check if FFmpeg is properly installed and accessible
  */
 export async function isInstalled(): Promise<boolean> {
-	return new Promise(resolve => {
-		try {
-			// Check if the bundled ffmpeg binary exists
-			if (!fs.existsSync(ffmpegInstaller.path)) {
-				console.error('FFmpeg binary not found at:', ffmpegInstaller.path)
-				resolve(false)
-				return
-			}
-
-			// Try to run a simple FFmpeg command to verify it's working
-			const ffmpegProcess = spawn(ffmpegInstaller.path, ['-version'], {
-				stdio: ['ignore', 'pipe', 'pipe']
-			})
-
-			let output = ''
-			let hasResponded = false
-
-			ffmpegProcess.stdout.on('data', data => {
-				output += data.toString()
-			})
-
-			ffmpegProcess.on('close', code => {
-				if (hasResponded) return
-				hasResponded = true
-
-				if (code === 0 && output.includes('ffmpeg version')) {
-					console.log('FFmpeg is working properly')
-					resolve(true)
-				} else {
-					console.warn('FFmpeg binary exists but may have issues, but will proceed anyway')
-					// Fallback: if binary exists, assume it's working even if version check failed
-					resolve(true)
-				}
-			})
-
-			ffmpegProcess.on('error', err => {
-				if (hasResponded) return
-				hasResponded = true
-
-				console.warn('Error running FFmpeg version check:', err.message)
-				// Fallback: if binary exists, assume it's working even if version check failed
-				console.log('Proceeding with FFmpeg despite version check failure')
-				resolve(true)
-			})
-
-			// Timeout after 3 seconds
-			setTimeout(() => {
-				if (hasResponded) return
-				hasResponded = true
-
-				ffmpegProcess.kill()
-				console.warn('FFmpeg version check timed out, but binary exists - proceeding anyway')
-				// Fallback: if binary exists, assume it's working
-				resolve(true)
-			}, 3000)
-		} catch (err: any) {
-			console.error('Error checking FFmpeg installation:', err)
-			// Final fallback: just check if file exists
-			const exists = fs.existsSync(ffmpegInstaller.path)
-			console.log(`Fallback: FFmpeg binary exists: ${exists}`)
-			resolve(exists)
-		}
-	})
+	try {
+		// Ensure FFmpeg is initialized first
+		await initializeFFmpeg()
+		return true
+	} catch (err) {
+		console.error('FFmpeg is not properly installed or accessible:', err)
+		return false
+	}
 }
 
 /**
  * Get FFmpeg binary information
  */
 export function getBinaryInfo(): BinaryInfo {
-	// Try to find ffprobe path
-	const ffmpegDir = path.dirname(ffmpegInstaller.path)
-	const possibleFFprobePaths = [
-		path.join(ffmpegDir, 'ffprobe'),
-		path.join(ffmpegDir, 'ffprobe.exe'),
-		ffmpegInstaller.path.replace('ffmpeg', 'ffprobe'),
-		ffmpegInstaller.path.replace('ffmpeg.exe', 'ffprobe.exe')
-	]
-
-	let ffprobePath: string | null = null
-	for (const probePath of possibleFFprobePaths) {
-		if (fs.existsSync(probePath)) {
-			ffprobePath = probePath
-			break
-		}
-	}
+	const currentFFmpegPath = getFFmpegPath()
+	const currentFFprobePath = getFFprobePath()
 
 	return {
-		ffmpegPath: ffmpegInstaller.path,
-		ffprobePath: ffprobePath,
-		exists: fs.existsSync(ffmpegInstaller.path),
-		ffprobeExists: ffprobePath ? fs.existsSync(ffprobePath) : false,
+		ffmpegPath: currentFFmpegPath,
+		ffprobePath: currentFFprobePath,
+		exists: fs.existsSync(currentFFmpegPath),
+		ffprobeExists: currentFFprobePath ? fs.existsSync(currentFFprobePath) : false,
 		version: null // Will be populated by isInstalled()
 	}
 }
@@ -144,11 +254,8 @@ export function getBinaryInfo(): BinaryInfo {
  * Extract audio from a video file optimized for transcription
  */
 export async function extractAudio(videoPath: string): Promise<string> {
-	// Verify FFmpeg is available before proceeding
-	const isAvailable = await isInstalled()
-	if (!isAvailable) {
-		throw new Error('FFmpeg is not available. Please ensure the application was installed correctly.')
-	}
+	// Ensure FFmpeg is properly initialized before proceeding
+	await initializeFFmpeg()
 
 	const tempDir = path.join(app.getPath('userData'), 'temp')
 
@@ -162,7 +269,7 @@ export async function extractAudio(videoPath: string): Promise<string> {
 
 	return new Promise((resolve, reject) => {
 		console.log(`Starting audio extraction from: ${videoPath}`)
-		console.log(`Using FFmpeg binary: ${ffmpegInstaller.path}`)
+		console.log(`Using FFmpeg binary: ${getFFmpegPath()}`)
 
 		ffmpeg(videoPath)
 			.output(outputPath)
@@ -182,10 +289,10 @@ export async function extractAudio(videoPath: string): Promise<string> {
 				'-compression_level',
 				'9' // Maximum MP3 compression
 			])
-			.on('start', commandLine => {
+			.on('start', (commandLine: string) => {
 				console.log('FFmpeg command:', commandLine)
 			})
-			.on('progress', progress => {
+			.on('progress', (progress: any) => {
 				console.log(`Audio extraction progress: ${Math.round(progress.percent || 0)}%`)
 			})
 			.on('end', () => {
@@ -262,11 +369,8 @@ export async function extractAudio(videoPath: string): Promise<string> {
  * Process an audio file for transcription (compress and optimize)
  */
 export async function processAudio(audioPath: string): Promise<string> {
-	// Verify FFmpeg is available before proceeding
-	const isAvailable = await isInstalled()
-	if (!isAvailable) {
-		throw new Error('FFmpeg is not available. Please ensure the application was installed correctly.')
-	}
+	// Ensure FFmpeg is properly initialized before proceeding
+	await initializeFFmpeg()
 
 	const tempDir = path.join(app.getPath('userData'), 'temp')
 
@@ -300,10 +404,10 @@ export async function processAudio(audioPath: string): Promise<string> {
 				'-compression_level',
 				'9' // Maximum compression
 			])
-			.on('start', commandLine => {
+			.on('start', (commandLine: string) => {
 				console.log('FFmpeg audio processing command:', commandLine)
 			})
-			.on('progress', progress => {
+			.on('progress', (progress: any) => {
 				console.log(`Audio processing progress: ${Math.round(progress.percent || 0)}%`)
 			})
 			.on('end', () => {
@@ -384,16 +488,13 @@ export async function processAudio(audioPath: string): Promise<string> {
  * Get the duration of a video file
  */
 export async function getVideoDuration(videoPath: string): Promise<number> {
-	// Verify FFmpeg is available before proceeding
-	const isAvailable = await isInstalled()
-	if (!isAvailable) {
-		throw new Error('FFmpeg is not available. Please ensure the application was installed correctly.')
-	}
+	// Ensure FFmpeg is properly initialized before proceeding
+	await initializeFFmpeg()
 
 	return new Promise((resolve, reject) => {
 		console.log(`Getting duration for video: ${videoPath}`)
 
-		ffmpeg.ffprobe(videoPath, (err, metadata) => {
+		ffmpeg.ffprobe(videoPath, (err: any, metadata: any) => {
 			if (err) {
 				console.error('FFprobe error:', err)
 				reject(new Error(`Failed to get video duration: ${err.message}`))
@@ -416,11 +517,8 @@ export async function getVideoDuration(videoPath: string): Promise<number> {
  * Download a video from a URL
  */
 export async function downloadVideo(url: string, outputPath: string): Promise<void> {
-	// Verify FFmpeg is available before proceeding
-	const isAvailable = await isInstalled()
-	if (!isAvailable) {
-		throw new Error('FFmpeg is not available. Please ensure the application was installed correctly.')
-	}
+	// Ensure FFmpeg is properly initialized before proceeding
+	await initializeFFmpeg()
 
 	// Create the output directory if it doesn't exist
 	const outputDir = path.dirname(outputPath)
@@ -434,10 +532,10 @@ export async function downloadVideo(url: string, outputPath: string): Promise<vo
 		ffmpeg(url)
 			.output(outputPath)
 			.outputOptions(['-c', 'copy']) // Copy without re-encoding
-			.on('start', commandLine => {
+			.on('start', (commandLine: string) => {
 				console.log('FFmpeg download command:', commandLine)
 			})
-			.on('progress', progress => {
+			.on('progress', (progress: any) => {
 				console.log(`Download progress: ${Math.round(progress.percent || 0)}%`)
 			})
 			.on('end', () => {
