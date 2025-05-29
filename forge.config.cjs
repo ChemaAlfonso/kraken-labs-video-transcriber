@@ -1,4 +1,6 @@
 const { VitePlugin } = require('@electron-forge/plugin-vite')
+const fs = require('fs')
+const path = require('path')
 
 module.exports = {
 	packagerConfig: {
@@ -7,7 +9,8 @@ module.exports = {
 		icon: './src/assets/icons/kkvideo',
 		appBundleId: 'com.krakenlabs.videotranscriber',
 		appCategoryType: 'public.app-category.productivity',
-		asarUnpack: ['**/node_modules/@ffmpeg-installer/**/*', '**/node_modules/better-sqlite3/**/*', '**/*.node'],
+		ignore: [],
+		asarUnpack: ['node_modules/@ffmpeg-installer', 'node_modules/better-sqlite3'],
 		...(process.platform === 'darwin' && {
 			icon: './src/assets/icons/kkvideo.icns'
 		}),
