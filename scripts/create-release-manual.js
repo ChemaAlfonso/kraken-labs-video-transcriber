@@ -66,6 +66,9 @@ try {
 		execSync(`git push origin ${version}`, { stdio: 'inherit' })
 	}
 
+	console.log(`🗑️ Deleting existing out directory...`)
+	execSync('npm run clean', { stdio: 'inherit' })
+
 	// Build assets for all platforms
 	console.log(`🔨 Building assets for all platforms...`)
 	console.log(`📦 This will take several minutes...`)
