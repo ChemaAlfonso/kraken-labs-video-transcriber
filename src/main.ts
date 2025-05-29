@@ -409,11 +409,16 @@ ipcMain.handle('regenerate-index', async (_, { id, transcription, language, prom
 		console.log('✅ Result updated in database')
 
 		return {
-			index: result.index
+			success: true,
+			index: result.index,
+			prompt: prompt
 		}
-	} catch (error) {
+	} catch (error: any) {
 		console.error('❌ Error in index regeneration process:', error)
-		throw error
+		return {
+			success: false,
+			error: error.message || 'Unknown error occurred'
+		}
 	}
 })
 
@@ -434,7 +439,14 @@ ipcMain.handle('extract-audio', async (_, videoPath) => {
 ipcMain.handle('save-result', async (_, data) => {
 	try {
 		console.log('💾 Saving transcription result to database...')
-		const result = await db.saveTranscriptionResult(data)
+
+		// Map frontend fields to database fields
+		const dbData = {
+			...data,
+			index_content: data.index // Map index to index_content for database
+		}
+
+		const result = await db.saveTranscriptionResult(dbData)
 		console.log('✅ Result saved with ID:', result.id)
 		return result
 	} catch (error) {
@@ -448,7 +460,14 @@ ipcMain.handle('get-results', async () => {
 		console.log('📋 Getting all transcription results from database...')
 		const results = await db.getTranscriptionResults()
 		console.log('✅ Retrieved', results.length, 'results')
-		return results
+
+		// Map database fields to frontend expectations
+		const mappedResults = results.map(result => ({
+			...result,
+			index: result.index_content // Map index_content to index
+		}))
+
+		return mappedResults
 	} catch (error) {
 		console.error('❌ Error getting results:', error)
 		throw error
