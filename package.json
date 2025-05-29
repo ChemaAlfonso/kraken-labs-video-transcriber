@@ -27,9 +27,7 @@
 		"make:macos": "electron-forge make --platform=darwin",
 		"make:windows": "electron-forge make --platform=win32 --arch=x64",
 		"make:linux": "electron-forge make --platform=linux --arch=x64",
-		"make:all": "npm run make:macos && npm run make:windows && npm run make:linux",
-		"test:ffmpeg": "node scripts/test-ffmpeg.js",
-		"test:package": "node scripts/test-packaging.js"
+		"make:all": "npm run make:macos && npm run make:windows && npm run make:linux"
 	},
 	"dependencies": {
 		"@ffmpeg-installer/ffmpeg": "^1.1.0",

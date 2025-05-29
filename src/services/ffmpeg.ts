@@ -28,7 +28,6 @@ function getFFmpegPath(): string {
 
 	if (isDev) {
 		// In development, use the installed path from @ffmpeg-installer
-		console.log('Development mode: using FFmpeg from @ffmpeg-installer:', ffmpegInstaller.path)
 		return ffmpegInstaller.path
 	} else {
 		// In packaged app, use extraResource location
@@ -59,7 +58,6 @@ function getFFmpegPath(): string {
 
 		// Final fallback: check if the original installer path works
 		if (fs.existsSync(ffmpegInstaller.path)) {
-			console.log('Using original installer path:', ffmpegInstaller.path)
 			return ffmpegInstaller.path
 		}
 
@@ -83,12 +81,10 @@ function getFFprobePath(): string | null {
 
 	for (const probePath of possibleFFprobePaths) {
 		if (fs.existsSync(probePath)) {
-			console.log('Found FFprobe at:', probePath)
 			return probePath
 		}
 	}
 
-	console.log('FFprobe not found in expected locations')
 	return null
 }
 
@@ -146,7 +142,6 @@ async function initializeFFmpeg(): Promise<void> {
 				hasResponded = true
 
 				if (code === 0) {
-					console.log('FFmpeg binary test successful')
 					resolve()
 				} else {
 					reject(new Error(`FFmpeg binary test failed with code: ${code}`))
@@ -173,39 +168,8 @@ async function initializeFFmpeg(): Promise<void> {
 	}
 
 	ffmpegInitialized = true
-	console.log('FFmpeg initialization completed successfully')
+	console.log('✅ FFmpeg initialization completed successfully')
 }
-
-// Debug function to log path information
-function debugFFmpegPaths() {
-	console.log('=== FFmpeg Path Debug Info ===')
-	console.log('app.isPackaged:', app.isPackaged)
-	console.log('process.resourcesPath:', process.resourcesPath)
-	console.log('@ffmpeg-installer path:', ffmpegInstaller.path)
-	console.log('Resolved FFmpeg path:', getFFmpegPath())
-	console.log('Resolved FFprobe path:', getFFprobePath())
-	console.log('FFmpeg exists:', fs.existsSync(getFFmpegPath()))
-
-	if (getFFprobePath()) {
-		console.log('FFprobe exists:', fs.existsSync(getFFprobePath()!))
-	}
-
-	// Try to get permissions on the binary
-	try {
-		const stats = fs.statSync(getFFmpegPath())
-		console.log('FFmpeg file stats:', {
-			isFile: stats.isFile(),
-			mode: stats.mode.toString(8),
-			size: stats.size
-		})
-	} catch (err) {
-		console.error('Error reading FFmpeg file stats:', err)
-	}
-	console.log('=== End FFmpeg Debug Info ===')
-}
-
-// Call debug function immediately
-debugFFmpegPaths()
 
 // Initialize FFmpeg when the module loads (but don't await it to avoid blocking)
 initializeFFmpeg().catch(err => {
@@ -268,8 +232,7 @@ export async function extractAudio(videoPath: string): Promise<string> {
 	const maxSizeBytes = 24 * 1024 * 1024 // 24MB to stay under OpenAI's 25MB limit
 
 	return new Promise((resolve, reject) => {
-		console.log(`Starting audio extraction from: ${videoPath}`)
-		console.log(`Using FFmpeg binary: ${getFFmpegPath()}`)
+		console.log(`🎬 Starting audio extraction from: ${videoPath}`)
 
 		ffmpeg(videoPath)
 			.output(outputPath)
@@ -289,14 +252,11 @@ export async function extractAudio(videoPath: string): Promise<string> {
 				'-compression_level',
 				'9' // Maximum MP3 compression
 			])
-			.on('start', (commandLine: string) => {
-				console.log('FFmpeg command:', commandLine)
-			})
 			.on('progress', (progress: any) => {
-				console.log(`Audio extraction progress: ${Math.round(progress.percent || 0)}%`)
+				console.log(`🎵 Audio extraction progress: ${Math.round(progress.percent || 0)}%`)
 			})
 			.on('end', () => {
-				console.log('Audio extraction completed successfully')
+				console.log('✅ Audio extraction completed successfully')
 
 				// Check file size
 				try {
@@ -383,8 +343,7 @@ export async function processAudio(audioPath: string): Promise<string> {
 	const maxSizeBytes = 24 * 1024 * 1024 // 24MB to stay under OpenAI's 25MB limit
 
 	return new Promise((resolve, reject) => {
-		console.log(`Starting audio processing from: ${audioPath}`)
-		console.log(`Output will be saved to: ${outputPath}`)
+		console.log(`🎵 Processing audio file: ${audioPath}`)
 
 		ffmpeg(audioPath)
 			.output(outputPath)
@@ -404,14 +363,11 @@ export async function processAudio(audioPath: string): Promise<string> {
 				'-compression_level',
 				'9' // Maximum compression
 			])
-			.on('start', (commandLine: string) => {
-				console.log('FFmpeg audio processing command:', commandLine)
-			})
 			.on('progress', (progress: any) => {
-				console.log(`Audio processing progress: ${Math.round(progress.percent || 0)}%`)
+				console.log(`🎵 Audio processing progress: ${Math.round(progress.percent || 0)}%`)
 			})
 			.on('end', () => {
-				console.log('Audio processing completed successfully')
+				console.log('✅ Audio processing completed successfully')
 
 				// Check file size
 				try {
@@ -492,11 +448,9 @@ export async function getVideoDuration(videoPath: string): Promise<number> {
 	await initializeFFmpeg()
 
 	return new Promise((resolve, reject) => {
-		console.log(`Getting duration for video: ${videoPath}`)
-
 		ffmpeg.ffprobe(videoPath, (err: any, metadata: any) => {
 			if (err) {
-				console.error('FFprobe error:', err)
+				console.error('❌ FFprobe error:', err)
 				reject(new Error(`Failed to get video duration: ${err.message}`))
 				return
 			}
@@ -507,7 +461,6 @@ export async function getVideoDuration(videoPath: string): Promise<number> {
 			}
 
 			const duration = metadata.format.duration
-			console.log(`Video duration: ${duration} seconds`)
 			resolve(duration || 0)
 		})
 	})
@@ -527,23 +480,20 @@ export async function downloadVideo(url: string, outputPath: string): Promise<vo
 	}
 
 	return new Promise((resolve, reject) => {
-		console.log(`Downloading video from: ${url} to: ${outputPath}`)
+		console.log(`📥 Downloading video from URL: ${url}`)
 
 		ffmpeg(url)
 			.output(outputPath)
 			.outputOptions(['-c', 'copy']) // Copy without re-encoding
-			.on('start', (commandLine: string) => {
-				console.log('FFmpeg download command:', commandLine)
-			})
 			.on('progress', (progress: any) => {
-				console.log(`Download progress: ${Math.round(progress.percent || 0)}%`)
+				console.log(`📥 Download progress: ${Math.round(progress.percent || 0)}%`)
 			})
 			.on('end', () => {
-				console.log('Video download completed successfully')
+				console.log('✅ Video download completed successfully')
 				resolve()
 			})
 			.on('error', (err: Error) => {
-				console.error('FFmpeg download error:', err)
+				console.error('❌ FFmpeg download error:', err)
 				reject(new Error(`Failed to download video: ${err.message}`))
 			})
 			.run()

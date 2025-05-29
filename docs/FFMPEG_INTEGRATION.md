@@ -22,11 +22,11 @@ The Electron Forge configuration ensures FFmpeg binaries are properly packaged:
 // forge.config.cjs
 packagerConfig: {
   asar: true,
-  asarUnpack: '**/node_modules/@ffmpeg-installer/**/*'
+  extraResource: ['node_modules/@ffmpeg-installer/']
 }
 ```
 
-The `asarUnpack` setting ensures FFmpeg binaries are extracted from the ASAR archive and remain executable.
+The `extraResource` setting ensures FFmpeg binaries are bundled with the application and accessible at runtime.
 
 ### 3. Runtime Integration
 
@@ -62,32 +62,6 @@ The FFmpeg service (`electron/services/ffmpeg.js`) automatically:
 -   Download videos from URLs
 -   Process various video codecs and containers
 
-## Testing
-
-### Test FFmpeg Installation
-
-```bash
-npm run test:ffmpeg
-```
-
-This script verifies:
-
--   FFmpeg binary exists and is executable
--   FFmpeg version information
--   FFprobe availability (if bundled)
-
-### Test Application Packaging
-
-```bash
-npm run test:package
-```
-
-This script:
-
--   Builds a complete application package
--   Verifies FFmpeg binaries are included
--   Checks package structure
-
 ## File Locations
 
 ### Development
@@ -97,7 +71,7 @@ This script:
 
 ### Production (Packaged App)
 
--   FFmpeg binary: `app.asar.unpacked/node_modules/@ffmpeg-installer/[platform]/ffmpeg`
+-   FFmpeg binary: `Contents/Resources/@ffmpeg-installer/[platform]/ffmpeg` (extraResource)
 -   Temporary audio files: `{userData}/temp/`
 
 ## Error Handling
@@ -118,7 +92,7 @@ The FFmpeg service includes comprehensive error handling:
 module.exports = {
 	packagerConfig: {
 		asar: true,
-		asarUnpack: '**/node_modules/@ffmpeg-installer/**/*'
+		extraResource: ['node_modules/@ffmpeg-installer/']
 	}
 }
 ```
@@ -126,7 +100,7 @@ module.exports = {
 ### FFmpeg Service Configuration
 
 ```javascript
-// electron/services/ffmpeg.js
+// src/services/ffmpeg.ts
 const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg')
 const ffmpeg = require('fluent-ffmpeg')
 
@@ -150,16 +124,10 @@ ffmpeg.setFfmpegPath(ffmpegInstaller.path)
     - This is usually handled automatically by the installer
 
 3. **Packaging Issues**
-    - Ensure `asarUnpack` is configured correctly in forge.config.cjs
-    - Verify the binary is extracted from ASAR in the final package
+    - Ensure `extraResource` is configured correctly in forge.config.cjs
+    - Verify the binary is extracted properly in the final package
 
-### Debug Information
-
-The application provides debug information through:
-
--   Console logs during FFmpeg operations
--   `getFfmpegInfo()` API method for binary information
--   Detailed error messages for troubleshooting
+The application provides detailed error messages and emoji-based status indicators for troubleshooting FFmpeg operations.
 
 ## Benefits for End Users
 
@@ -179,15 +147,15 @@ When adding new FFmpeg functionality:
 2. Use proper error handling and user-friendly error messages
 3. Consider file size limits for transcription services
 4. Clean up temporary files after processing
+5. Use emoji-based logging for clear status indicators
 
 ### Testing Changes
 
-Always test changes with:
+Test changes with:
 
-1. `npm run test:ffmpeg` - Verify binary functionality
-2. `npm run electron:dev` - Test in development
-3. `npm run test:package` - Test packaging
-4. Manual testing on target platforms
+1. `npm run dev` - Test in development mode
+2. `npm run build` - Test packaging
+3. Manual testing on target platforms
 
 ## License Considerations
 

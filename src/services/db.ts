@@ -115,10 +115,6 @@ export async function initialize(): Promise<Database.Database> {
 		console.log('✅ Database schema updated with whisper_model field')
 	}
 
-	// Log temp directory for audio files
-	const tempDir = path.join(app.getPath('userData'), 'temp')
-	console.log('🎵 Audio files location:', tempDir)
-
 	return db
 }
 

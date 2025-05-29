@@ -26,7 +26,6 @@ export function getAppDataDir(subDir: string = ''): string {
 export function getTempDir(): string {
 	const tempDir = path.join(app.getPath('userData'), 'temp')
 	ensureDirectoryExists(tempDir)
-	console.log('🎵 Audio files location:', tempDir)
 	return tempDir
 }
 

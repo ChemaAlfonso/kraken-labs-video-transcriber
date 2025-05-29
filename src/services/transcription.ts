@@ -7,7 +7,6 @@ try {
 	// Use require without eval to avoid bundling issues
 	const formDataModule = require('form-data')
 	FormData = formDataModule.default || formDataModule
-	console.log('Successfully imported form-data')
 } catch (err) {
 	console.error('Failed to import form-data:', err)
 	throw new Error('form-data could not be imported: ' + err)
