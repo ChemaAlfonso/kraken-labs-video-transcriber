@@ -20,48 +20,55 @@ module.exports = {
 	},
 	rebuildConfig: {},
 	makers: [
-		{
-			name: '@electron-forge/maker-squirrel',
-			config: {
-				name: 'kraken-labs-video-transcriber',
-				iconUrl:
-					'https://raw.githubusercontent.com/chemaalfonso/kraken-labs-video-transcriber/main/src/assets/icons/kkvideo.ico',
-				setupIcon: './src/assets/icons/kkvideo.ico'
-			}
-		},
+		// Cross-platform ZIP files (works from any OS)
 		{
 			name: '@electron-forge/maker-zip',
-			platforms: ['darwin'],
-			config: {
-				icon: './src/assets/icons/kkvideo.icns'
-			}
+			platforms: ['darwin', 'linux', 'win32']
 		},
-		{
-			name: '@electron-forge/maker-deb',
-			config: {
-				options: {
-					name: 'kraken-labs-video-transcriber',
-					productName: 'Kraken Labs Video Transcriber',
-					genericName: 'Video Transcriber',
-					description: 'AI-powered video transcription and content indexing tool',
-					categories: ['AudioVideo', 'Office'],
-					icon: './src/assets/icons/kkvideo.png'
-				}
-			}
-		},
-		{
-			name: '@electron-forge/maker-rpm',
-			config: {
-				options: {
-					name: 'kraken-labs-video-transcriber',
-					productName: 'Kraken Labs Video Transcriber',
-					genericName: 'Video Transcriber',
-					description: 'AI-powered video transcription and content indexing tool',
-					categories: ['AudioVideo', 'Office'],
-					icon: './src/assets/icons/kkvideo.png'
-				}
-			}
-		}
+		// Platform-specific installers (only work on respective platforms)
+		...(process.platform === 'win32'
+			? [
+					{
+						name: '@electron-forge/maker-squirrel',
+						config: {
+							name: 'kraken-labs-video-transcriber',
+							iconUrl:
+								'https://raw.githubusercontent.com/chemaalfonso/kraken-labs-video-transcriber/main/src/assets/icons/kkvideo.ico',
+							setupIcon: './src/assets/icons/kkvideo.ico'
+						}
+					}
+			  ]
+			: []),
+		...(process.platform === 'linux'
+			? [
+					{
+						name: '@electron-forge/maker-deb',
+						config: {
+							options: {
+								name: 'kraken-labs-video-transcriber',
+								productName: 'Kraken Labs Video Transcriber',
+								genericName: 'Video Transcriber',
+								description: 'AI-powered video transcription and content indexing tool',
+								categories: ['AudioVideo', 'Office'],
+								icon: './src/assets/icons/kkvideo.png'
+							}
+						}
+					},
+					{
+						name: '@electron-forge/maker-rpm',
+						config: {
+							options: {
+								name: 'kraken-labs-video-transcriber',
+								productName: 'Kraken Labs Video Transcriber',
+								genericName: 'Video Transcriber',
+								description: 'AI-powered video transcription and content indexing tool',
+								categories: ['AudioVideo', 'Office'],
+								icon: './src/assets/icons/kkvideo.png'
+							}
+						}
+					}
+			  ]
+			: [])
 	],
 	plugins: [
 		{
