@@ -1,74 +1,61 @@
 # Release Process
 
-This document describes how to create releases for Kraken Labs Video Transcriber.
+This document describes how to create releases for Kraken Labs Video Transcriber using the manual release process.
 
 ## Prerequisites
 
-Before creating your first release, make sure your GitHub repository is properly configured:
+Before creating your first release, make sure you have the required tools:
 
-👉 **See [GitHub Setup Guide](./GITHUB_SETUP.md)** for repository configuration
+### Install GitHub CLI
 
-## Automated Release Process
+```bash
+# macOS
+brew install gh
 
-The project uses GitHub Actions to automatically build and create releases with downloadable assets for all supported platforms (macOS, Windows, Linux).
+# Windows
+winget install --id GitHub.cli
+
+# Linux
+sudo apt install gh  # or appropriate package manager
+```
+
+### Authenticate with GitHub
+
+```bash
+gh auth login
+```
+
+### Install Dependencies
+
+```bash
+npm install
+```
+
+## Release Process
 
 ### Creating a Release
 
-1. **Update the version** in `package.json`:
-
-    ```bash
-    # Example: updating from 0.1.0 to 0.2.0
-    npm version patch  # for bug fixes (0.1.0 → 0.1.1)
-    npm version minor  # for new features (0.1.0 → 0.2.0)
-    npm version major  # for breaking changes (0.1.0 → 1.0.0)
-    ```
-
-2. **Commit the version change**:
-
-    ```bash
-    git add package.json package-lock.json
-    git commit -m "chore: bump version to v0.2.0"
-    git push origin main
-    ```
-
-3. **Create and push the release tag**:
-
-    ```bash
-    npm run release:tag
-    ```
-
-    This script will:
-
-    - Create a git tag based on the package.json version
-    - Push the tag to GitHub
-    - Trigger the GitHub Actions release workflow
-
-### Manual Release Trigger
-
-You can also manually trigger a release workflow:
+The release process builds for all platforms (macOS, Windows, Linux) and uploads the assets to GitHub:
 
 ```bash
-# Using the current package.json version
-npm run release:manual
+# 1. Update version
+npm version patch  # or minor/major
 
-# Or trigger via GitHub CLI with a custom version
-gh workflow run release.yml -f tag=v1.0.0
+# 2. Commit version change
+git add package.json package-lock.json
+git commit -m "chore: bump version to v0.1.1"
+git push origin main
+
+# 3. Create release (builds + uploads to GitHub)
+npm run release
 ```
 
-### What Happens During Release
+This will:
 
-1. **Build Phase**: The workflow builds the application for all supported platforms:
-
-    - macOS (Intel x64 and Apple Silicon ARM64)
-    - Windows (x64)
-    - Linux (x64)
-
-2. **Package Phase**: Each platform build is packaged into a ZIP file using electron-forge
-
-3. **Release Phase**:
-    - Creates a GitHub release with the tag
-    - Uploads all ZIP files as release assets
-    - Generates release notes with download instructions
+-   ✅ Build the app for all configured platforms (macOS Intel/ARM, Windows x64, Linux x64)
+-   ✅ Create a git tag and push it
+-   ✅ Create a GitHub release
+-   ✅ Upload all ZIP files as assets
 
 ### Release Assets
 
@@ -79,12 +66,57 @@ The following assets are generated and attached to each release:
 -   `Kraken Labs Video Transcriber-win32-x64-{version}.zip` - Windows 64-bit
 -   `Kraken Labs Video Transcriber-linux-x64-{version}.zip` - Linux 64-bit
 
+## Alternative Release Options
+
+### Option 1: Complete Release (Recommended)
+
+```bash
+npm run release
+```
+
+### Option 2: Step-by-Step
+
+```bash
+# Build for all platforms first
+npm run make:all
+
+# Then create release
+npm run release
+```
+
+### Option 3: Individual Commands
+
+```bash
+# Build
+npm run make:all
+
+# Create release manually
+gh release create v1.0.0 \
+  --title "Kraken Labs Video Transcriber v1.0.0" \
+  --notes "Release notes here"
+
+# Upload specific files
+gh release upload v1.0.0 out/make/**/*.zip
+```
+
+### Option 4: Platform-Specific Building
+
+```bash
+# Build for specific platforms only
+npm run make:macos     # macOS only
+npm run make:windows   # Windows only
+npm run make:linux     # Linux only
+
+# Then create release with available assets
+npm run release
+```
+
 ## Local Testing
 
 Before creating a release, you can test the build process locally:
 
 ```bash
-# Build for all platforms (requires appropriate OS)
+# Build for all platforms
 npm run make:all
 
 # Or build for specific platforms
@@ -93,26 +125,27 @@ npm run make:windows  # Windows only
 npm run make:linux    # Linux only
 
 # Check the generated files
-ls out/make/zip/
+find out/make -name "*.zip"
 ```
 
 ## Troubleshooting
 
 ### Build Failures
 
-If a build fails in GitHub Actions:
+If a build fails:
 
-1. Check the Actions tab in the GitHub repository
-2. Review the build logs for the failing platform
-3. Fix any issues and create a new tag to retry
+1. Check that all dependencies are installed: `npm install`
+2. Verify you have the necessary build tools for cross-platform compilation
+3. Check the error logs for specific issues
+4. Try building individual platforms: `npm run make:macos` etc.
 
 ### Missing Assets
 
 If assets are missing from a release:
 
-1. Verify the `out/make/zip/` directory contains ZIP files after local build
-2. Check that the workflow artifact upload step succeeded
-3. Ensure the GitHub token has the necessary permissions
+1. Verify the `out/make/` directory contains ZIP files after local build
+2. Check that the build completed successfully for all platforms
+3. Ensure you have write access to the GitHub repository
 
 ### Version Conflicts
 
@@ -120,7 +153,15 @@ If you get a "tag already exists" error:
 
 1. Update the version in `package.json`
 2. Commit the change
-3. Run `npm run release:tag` again
+3. Run `npm run release` again
+
+### GitHub CLI Issues
+
+If you get authentication or permission errors:
+
+1. Check authentication: `gh auth status`
+2. Re-authenticate if needed: `gh auth login`
+3. Verify you have write access to the repository
 
 ## Development Workflow
 
@@ -131,4 +172,4 @@ For active development:
 3. Update version and create release tags only for stable releases
 4. Use semantic versioning (MAJOR.MINOR.PATCH)
 
-The `out/` directory is already excluded from git commits via `.gitignore`, so build artifacts won't clutter the repository.
+The `out/` directory is already excluded from git commits via `.gitignore`, so build artifacts won't clutter the repository and only appear as release assets.

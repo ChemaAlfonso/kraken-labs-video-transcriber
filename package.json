@@ -30,7 +30,7 @@
 		"make:all": "npm run make:macos && npm run make:windows && npm run make:linux",
 		"release:prepare": "npm run make:all",
 		"release:tag": "node scripts/tag-release.js",
-		"release:manual": "gh workflow run release.yml -f tag=$npm_package_version"
+		"release": "node scripts/create-release-manual.js"
 	},
 	"dependencies": {
 		"@ffmpeg-installer/ffmpeg": "^1.1.0",
