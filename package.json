@@ -27,7 +27,10 @@
 		"make:macos": "electron-forge make --platform=darwin",
 		"make:windows": "electron-forge make --platform=win32 --arch=x64",
 		"make:linux": "electron-forge make --platform=linux --arch=x64",
-		"make:all": "npm run make:macos && npm run make:windows && npm run make:linux"
+		"make:all": "npm run make:macos && npm run make:windows && npm run make:linux",
+		"release:prepare": "npm run make:all",
+		"release:tag": "node scripts/tag-release.js",
+		"release:manual": "gh workflow run release.yml -f tag=$npm_package_version"
 	},
 	"dependencies": {
 		"@ffmpeg-installer/ffmpeg": "^1.1.0",
