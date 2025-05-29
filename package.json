@@ -7,7 +7,7 @@
 		"email": "hola@chemaalfonso.com",
 		"url": "https://krakenlabsweb.com"
 	},
-	"description": "Kraken Labs Video Transcriber - A tool to generate content indexes from videos",
+	"description": "Kraken Labs Video Transcriber - A tool to generate content indexes from videos and audio files using AI",
 	"license": "LGPL-3.0-or-later",
 	"homepage": "https://github.com/chemaalfonso/kraken-labs-video-transcriber",
 	"repository": {
@@ -15,17 +15,12 @@
 		"url": "https://github.com/chemaalfonso/kraken-labs-video-transcriber"
 	},
 	"type": "commonjs",
-	"main": "electron/main.js",
+	"main": ".vite/build/main.js",
 	"scripts": {
-		"dev": "vite",
-		"build": "vue-tsc --noEmit && vite build",
-		"preview": "vite preview",
-		"electron:dev": "npm run build && NODE_ENV=development electron .",
-		"electron:build": "npm run build && electron-forge package",
-		"electron:start": "electron-forge start",
-		"package": "electron-forge package",
+		"dev": "electron-forge start",
+		"build": "electron-forge package",
 		"make": "electron-forge make",
-		"start": "electron-forge start",
+		"build:all": "node scripts/build-all-platforms.js",
 		"test:ffmpeg": "node scripts/test-ffmpeg.js",
 		"test:package": "node scripts/test-packaging.js"
 	},
@@ -39,8 +34,6 @@
 		"form-data": "^4.0.0",
 		"marked": "^9.0.0",
 		"pinia": "^2.1.7",
-		"sqlite": "^5.1.1",
-		"sqlite3": "^5.1.7",
 		"uuid": "^9.0.1",
 		"vue": "^3.3.4",
 		"vue-router": "^4.2.5"
@@ -56,6 +49,7 @@
 		"@electron-forge/plugin-vite": "^7.3.0",
 		"@electron/fuses": "^1.8.0",
 		"@tailwindcss/typography": "^0.5.16",
+		"@types/better-sqlite3": "^7.6.13",
 		"@types/fluent-ffmpeg": "^2.1.24",
 		"@types/node": "^22.15.24",
 		"@types/uuid": "^9.0.8",

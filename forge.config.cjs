@@ -7,7 +7,7 @@ module.exports = {
 		icon: './src/assets/icons/kkvideo',
 		appBundleId: 'com.krakenlabs.videotranscriber',
 		appCategoryType: 'public.app-category.productivity',
-		asarUnpack: '**/node_modules/@ffmpeg-installer/**/*',
+		asarUnpack: ['**/node_modules/@ffmpeg-installer/**/*', '**/node_modules/better-sqlite3/**/*', '**/*.node'],
 		...(process.platform === 'darwin' && {
 			icon: './src/assets/icons/kkvideo.icns'
 		}),
@@ -74,7 +74,11 @@ module.exports = {
 				{
 					// `entry` is the path to the entry file
 					entry: 'src/main.ts',
-					config: 'vite.config.ts'
+					config: 'vite.main.config.ts'
+				},
+				{
+					entry: 'src/preload.ts',
+					config: 'vite.preload.config.ts'
 				}
 			],
 			renderer: [

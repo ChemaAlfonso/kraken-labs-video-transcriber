@@ -1,12 +1,32 @@
-const sqlite3 = require('sqlite3')
-const { open } = require('sqlite')
-const path = require('path')
-const fs = require('fs')
-const { app } = require('electron')
+import Database from 'better-sqlite3'
+import * as path from 'path'
+import * as fs from 'fs'
+import { app } from 'electron'
 
-let db = null
+let db: Database.Database | null = null
 
-async function initialize() {
+interface ApiConfig {
+	api_type: string
+	apiKey: string
+	model: string
+	host: string
+	temperature: number
+	whisperModel: string
+}
+
+interface TranscriptionResult {
+	id?: number
+	title: string
+	source: string
+	date: string
+	language: string
+	index_content: string
+	transcription: string
+	prompt: string
+	audio_path: string
+}
+
+export async function initialize(): Promise<Database.Database> {
 	// Ensure data directory exists
 	const dataDir = path.join(app.getPath('userData'), 'data')
 	if (!fs.existsSync(dataDir)) {
@@ -16,14 +36,11 @@ async function initialize() {
 	const dbPath = path.join(dataDir, 'kraken-labs-video-transcriber.db')
 	console.log('📁 Database location:', dbPath)
 
-	// Open the database
-	db = await open({
-		filename: dbPath,
-		driver: sqlite3.Database
-	})
+	// Open the database with better-sqlite3
+	db = new Database(dbPath)
 
 	// Create tables first if they don't exist
-	await db.exec(`
+	db.exec(`
     CREATE TABLE IF NOT EXISTS generations (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       title TEXT NOT NULL,
@@ -55,13 +72,13 @@ async function initialize() {
 
 	// Now handle migrations after tables exist
 	// Check if generations table exists and its schema
-	const tableInfo = await db.all('PRAGMA table_info(generations)')
+	const tableInfo = db.pragma('table_info(generations)') as Array<{ name: string; [key: string]: any }>
 	const hasDurationField = tableInfo.some(column => column.name === 'duration')
 
 	if (hasDurationField) {
 		console.log('🔄 Migrating database schema - removing duration field...')
 		// Create new table without duration field
-		await db.exec(`
+		db.exec(`
 			CREATE TABLE IF NOT EXISTS generations_new (
 				id INTEGER PRIMARY KEY AUTOINCREMENT,
 				title TEXT NOT NULL,
@@ -76,25 +93,25 @@ async function initialize() {
 		`)
 
 		// Copy data from old table to new table (excluding duration)
-		await db.exec(`
+		db.exec(`
 			INSERT INTO generations_new (id, title, source, date, language, index_content, transcription, prompt, audio_path)
 			SELECT id, title, source, date, language, index_content, transcription, prompt, audio_path
 			FROM generations;
 		`)
 
 		// Drop old table and rename new one
-		await db.exec(`DROP TABLE generations;`)
-		await db.exec(`ALTER TABLE generations_new RENAME TO generations;`)
+		db.exec(`DROP TABLE generations;`)
+		db.exec(`ALTER TABLE generations_new RENAME TO generations;`)
 		console.log('✅ Database migration completed')
 	}
 
 	// Check if api_config table needs whisper_model field
-	const apiConfigTableInfo = await db.all('PRAGMA table_info(api_config)')
+	const apiConfigTableInfo = db.pragma('table_info(api_config)') as Array<{ name: string; [key: string]: any }>
 	const hasWhisperModelField = apiConfigTableInfo.some(column => column.name === 'whisper_model')
 
 	if (!hasWhisperModelField) {
 		console.log('🔄 Adding whisper_model field to api_config table...')
-		await db.exec(`ALTER TABLE api_config ADD COLUMN whisper_model TEXT DEFAULT 'whisper-1';`)
+		db.exec(`ALTER TABLE api_config ADD COLUMN whisper_model TEXT DEFAULT 'whisper-1';`)
 		console.log('✅ Database schema updated with whisper_model field')
 	}
 
@@ -105,7 +122,7 @@ async function initialize() {
 	return db
 }
 
-function getDb() {
+function getDb(): Database.Database {
 	if (!db) {
 		throw new Error('Database not initialized')
 	}
@@ -113,25 +130,26 @@ function getDb() {
 }
 
 // API Configuration functions
-async function saveApiConfig(apiType, config) {
-	const db = getDb()
-	await db.run(
+export async function saveApiConfig(apiType: string, config: Partial<ApiConfig>): Promise<void> {
+	const database = getDb()
+	const stmt = database.prepare(
 		`INSERT OR REPLACE INTO api_config (api_type, api_key, model, host, temperature, whisper_model) 
-     VALUES (?, ?, ?, ?, ?, ?)`,
-		[
-			apiType,
-			config.apiKey || '',
-			config.model || '',
-			config.host || '',
-			config.temperature ?? 1,
-			config.whisperModel || 'whisper-1'
-		]
+     VALUES (?, ?, ?, ?, ?, ?)`
+	)
+	stmt.run(
+		apiType,
+		config.apiKey || '',
+		config.model || '',
+		config.host || '',
+		config.temperature ?? 1,
+		config.whisperModel || 'whisper-1'
 	)
 }
 
-async function getApiConfig(apiType) {
-	const db = getDb()
-	const result = await db.get('SELECT * FROM api_config WHERE api_type = ?', [apiType])
+export async function getApiConfig(apiType: string): Promise<ApiConfig> {
+	const database = getDb()
+	const stmt = database.prepare('SELECT * FROM api_config WHERE api_type = ?')
+	const result = stmt.get(apiType) as any
 	if (result) {
 		// Map database field names to service field names
 		return {
@@ -154,24 +172,26 @@ async function getApiConfig(apiType) {
 }
 
 // Settings functions
-async function setSetting(key, value) {
-	const db = getDb()
-	await db.run(`INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)`, [key, value])
+export async function setSetting(key: string, value: string): Promise<void> {
+	const database = getDb()
+	const stmt = database.prepare(`INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)`)
+	stmt.run(key, value)
 }
 
-async function getSetting(key, defaultValue = null) {
-	const db = getDb()
-	const result = await db.get('SELECT value FROM settings WHERE key = ?', [key])
+export async function getSetting(key: string, defaultValue: string | null = null): Promise<string | null> {
+	const database = getDb()
+	const stmt = database.prepare('SELECT value FROM settings WHERE key = ?')
+	const result = stmt.get(key) as any
 	return result ? result.value : defaultValue
 }
 
 // System prompt functions
-async function setSystemPrompt(prompt) {
+export async function setSystemPrompt(prompt: string): Promise<void> {
 	return await setSetting('systemPrompt', prompt)
 }
 
-async function getSystemPrompt() {
-	return await getSetting(
+export async function getSystemPrompt(): Promise<string> {
+	const result = await getSetting(
 		'systemPrompt',
 		`You are an expert in generating summaries and timestamped indexes based on transcripts of video sessions.
 
@@ -198,97 +218,76 @@ Your task is to generate a **short summary**, a **keyword list**, and a **precis
 ### Coverage requirement:
 
 - The index must be as **comprehensive** as possible.
-- Include **every distinct explanation, question, answer, advice, or example**—not just formal questions.
-- Avoid summarizing entire blocks of mixed content under a single vague topic.
-- Do not skip over segments longer than 10 seconds unless they are clearly off-topic or repetition.
-- If unsure whether to include a block: **include it**.
+- MUST include every topic discussed in the session.
+- If a segment is not thematically connected to an adjacent one, it needs its own entry.
 
-### Ordering rule:
+### Response format:
 
-- The index must be strictly sorted by timestamp in ascending order (hh:mm:ss).
-- Do not group or reorder entries based on topic relevance or importance.
-- Entries must appear in the exact order they occur in the session, no exceptions.
+Do not include any preamble or introduction. Start directly with the content organized as follows:
 
-### Output format:
+## Summary
+[Brief paragraph describing the main topics and purpose of the session]
 
-Do **not** include explanations, notes, or comments. Output in this exact order and format:
+## Keywords
+[Comma-separated list of relevant keywords and technical terms]
 
----
+## Detailed Index
 
-## Resumen
+[Detailed timestamped breakdown of every topic discussed, with timestamps linking to thematic content, not just speaker changes]
 
-Short summary of the overall session (max 4 lines, no bullet points).
+### Topic Structure:
+- **00:05:30 - [Topic title]**: Brief description of what is discussed
+- **00:08:45 - [Next topic title]**: Brief description of what is discussed
+- etc.
 
-## Conceptos clave
-
-- List of keywords and core topics (max 10, concise, informative).
-
-## Índice de contenidos
-
-| **Momento** | **Tema** | **Subtemas** |
-| ----------- | -------- | ------------ |
-| 00:05:30    | Topic description | Subtopic details |
-| 01:23:45    | Another topic | More details |
-
----
-
-### Goal:
-
-The goal is to generate an accurate, granular, and highly navigable map of the full session, not a summary. Prioritize clarity and completeness.`
+Remember: Be thorough, precise with timestamps, and prioritize content clarity over brevity.`
 	)
+	return result || ''
 }
 
 // Transcription results functions
-async function saveTranscriptionResult(data) {
-	const db = getDb()
-	await db.run(
+export async function saveTranscriptionResult(data: Omit<TranscriptionResult, 'id'>): Promise<TranscriptionResult> {
+	const database = getDb()
+	const stmt = database.prepare(
 		`INSERT INTO generations (title, source, date, language, index_content, transcription, prompt, audio_path)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		[
-			data.title,
-			data.source,
-			new Date().toISOString(),
-			data.language,
-			data.index,
-			data.transcription,
-			data.prompt,
-			data.audio_path
-		]
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
 	)
+	const result = stmt.run(
+		data.title,
+		data.source,
+		data.date,
+		data.language,
+		data.index_content,
+		data.transcription,
+		data.prompt,
+		data.audio_path
+	)
+
+	return {
+		id: Number(result.lastInsertRowid),
+		...data
+	}
 }
 
-async function getTranscriptionResults() {
-	const db = getDb()
-	const results = await db.all('SELECT * FROM generations ORDER BY date DESC')
-	// Map index_content to index for frontend compatibility
-	return results.map(result => ({
-		...result,
-		index: result.index_content
-	}))
+export async function getTranscriptionResults(): Promise<TranscriptionResult[]> {
+	const database = getDb()
+	const stmt = database.prepare('SELECT * FROM generations ORDER BY id DESC')
+	return stmt.all() as TranscriptionResult[]
 }
 
-async function deleteTranscriptionResult(id) {
-	const db = getDb()
-	await db.run('DELETE FROM generations WHERE id = ?', [id])
+export async function deleteTranscriptionResult(id: number): Promise<void> {
+	const database = getDb()
+	const stmt = database.prepare('DELETE FROM generations WHERE id = ?')
+	stmt.run(id)
 }
 
-async function updateTranscriptionResult(id, updates) {
-	const db = getDb()
-	const { index, prompt } = updates
-	await db.run('UPDATE generations SET index_content = ?, prompt = ? WHERE id = ?', [index, prompt, id])
-}
+export async function updateTranscriptionResult(id: number, updates: Partial<TranscriptionResult>): Promise<void> {
+	const database = getDb()
+	const fields = Object.keys(updates)
+		.map(key => `${key} = ?`)
+		.join(', ')
+	const values = Object.values(updates)
 
-module.exports = {
-	initialize,
-	getDb,
-	saveApiConfig,
-	getApiConfig,
-	setSetting,
-	getSetting,
-	setSystemPrompt,
-	getSystemPrompt,
-	saveTranscriptionResult,
-	getTranscriptionResults,
-	deleteTranscriptionResult,
-	updateTranscriptionResult
+	const stmt = database.prepare(`UPDATE generations SET ${fields} WHERE id = ?`)
+	stmt.run(...values, id)
 }

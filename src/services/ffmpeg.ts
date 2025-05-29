@@ -1,9 +1,9 @@
-const ffmpeg = require('fluent-ffmpeg')
-const fs = require('fs')
-const path = require('path')
-const { app } = require('electron')
-const { spawn } = require('child_process')
-const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg')
+import ffmpeg from 'fluent-ffmpeg'
+import * as fs from 'fs'
+import * as path from 'path'
+import { app } from 'electron'
+import { spawn } from 'child_process'
+import * as ffmpegInstaller from '@ffmpeg-installer/ffmpeg'
 
 // Set the ffmpeg path from the bundled binary
 ffmpeg.setFfmpegPath(ffmpegInstaller.path)
@@ -17,7 +17,7 @@ const possibleFFprobePaths = [
 	ffmpegInstaller.path.replace('ffmpeg.exe', 'ffprobe.exe')
 ]
 
-let ffprobePath = null
+let ffprobePath: string | null = null
 for (const probePath of possibleFFprobePaths) {
 	if (fs.existsSync(probePath)) {
 		ffprobePath = probePath
@@ -33,11 +33,18 @@ if (!ffprobePath) {
 
 console.log('FFmpeg binary path:', ffmpegInstaller.path)
 
+interface BinaryInfo {
+	ffmpegPath: string
+	ffprobePath: string | null
+	exists: boolean
+	ffprobeExists: boolean
+	version: string | null
+}
+
 /**
  * Check if FFmpeg is properly installed and accessible
- * @returns {Promise<boolean>} True if FFmpeg is available
  */
-async function isInstalled() {
+export async function isInstalled(): Promise<boolean> {
 	return new Promise(resolve => {
 		try {
 			// Check if the bundled ffmpeg binary exists
@@ -93,7 +100,7 @@ async function isInstalled() {
 				// Fallback: if binary exists, assume it's working
 				resolve(true)
 			}, 3000)
-		} catch (err) {
+		} catch (err: any) {
 			console.error('Error checking FFmpeg installation:', err)
 			// Final fallback: just check if file exists
 			const exists = fs.existsSync(ffmpegInstaller.path)
@@ -105,9 +112,8 @@ async function isInstalled() {
 
 /**
  * Get FFmpeg binary information
- * @returns {Object} Information about the FFmpeg binary
  */
-function getBinaryInfo() {
+export function getBinaryInfo(): BinaryInfo {
 	// Try to find ffprobe path
 	const ffmpegDir = path.dirname(ffmpegInstaller.path)
 	const possibleFFprobePaths = [
@@ -117,7 +123,7 @@ function getBinaryInfo() {
 		ffmpegInstaller.path.replace('ffmpeg.exe', 'ffprobe.exe')
 	]
 
-	let ffprobePath = null
+	let ffprobePath: string | null = null
 	for (const probePath of possibleFFprobePaths) {
 		if (fs.existsSync(probePath)) {
 			ffprobePath = probePath
@@ -136,10 +142,8 @@ function getBinaryInfo() {
 
 /**
  * Extract audio from a video file optimized for transcription
- * @param {string} videoPath Path to the video file
- * @returns {Promise<string>} Path to the extracted audio file
  */
-async function extractAudio(videoPath) {
+export async function extractAudio(videoPath: string): Promise<string> {
 	// Verify FFmpeg is available before proceeding
 	const isAvailable = await isInstalled()
 	if (!isAvailable) {
@@ -204,12 +208,12 @@ async function extractAudio(videoPath) {
 						ffmpeg(videoPath)
 							.output(outputPath2)
 							.audioCodec('libmp3lame')
-							.audioBitrate(24) // Extremely low bitrate
+							.audioBitrate(24) // Even lower bitrate
 							.audioFrequency(16000)
 							.audioChannels(1)
 							.outputOptions([
 								'-q:a',
-								'9',
+								'9', // Lowest quality
 								'-ac',
 								'1',
 								'-ar',
@@ -228,7 +232,7 @@ async function extractAudio(videoPath) {
 										fs.unlinkSync(outputPath)
 									}
 								} catch (cleanupErr) {
-									console.warn('Failed to clean up original file:', cleanupErr)
+									console.warn('Failed to clean up original audio file:', cleanupErr)
 								}
 
 								const finalStats = fs.statSync(outputPath2)
@@ -237,17 +241,17 @@ async function extractAudio(videoPath) {
 								)
 								resolve(outputPath2)
 							})
-							.on('error', err => reject(new Error(`Failed to compress audio: ${err.message}`)))
+							.on('error', (err: Error) => reject(new Error(`Failed to compress audio: ${err.message}`)))
 							.run()
 					} else {
 						resolve(outputPath)
 					}
-				} catch (statErr) {
-					reject(new Error(`Failed to check output file: ${statErr.message}`))
+				} catch (statErr: any) {
+					reject(new Error(`Failed to check audio file: ${statErr.message}`))
 				}
 			})
-			.on('error', err => {
-				console.error('FFmpeg error:', err)
+			.on('error', (err: Error) => {
+				console.error('FFmpeg audio extraction error:', err)
 				reject(new Error(`Failed to extract audio: ${err.message}`))
 			})
 			.run()
@@ -255,88 +259,9 @@ async function extractAudio(videoPath) {
 }
 
 /**
- * Get video duration in seconds
- * @param {string} videoPath Path to the video file
- * @returns {Promise<number>} Duration in seconds
- */
-async function getVideoDuration(videoPath) {
-	// Verify FFmpeg is available before proceeding
-	const isAvailable = await isInstalled()
-	if (!isAvailable) {
-		throw new Error('FFmpeg is not available. Please ensure the application was installed correctly.')
-	}
-
-	return new Promise((resolve, reject) => {
-		console.log(`Getting duration for video: ${videoPath}`)
-
-		ffmpeg.ffprobe(videoPath, (err, metadata) => {
-			if (err) {
-				console.error('FFprobe error:', err)
-				reject(new Error(`Failed to get video duration: ${err.message}`))
-				return
-			}
-
-			if (!metadata || !metadata.format) {
-				reject(new Error('Invalid video metadata'))
-				return
-			}
-
-			const duration = metadata.format.duration
-			console.log(`Video duration: ${duration} seconds`)
-			resolve(duration)
-		})
-	})
-}
-
-/**
- * Download a video from a URL
- * @param {string} url URL of the video to download
- * @param {string} outputPath Path where to save the video
- * @returns {Promise<void>}
- */
-async function downloadVideo(url, outputPath) {
-	// Verify FFmpeg is available before proceeding
-	const isAvailable = await isInstalled()
-	if (!isAvailable) {
-		throw new Error('FFmpeg is not available. Please ensure the application was installed correctly.')
-	}
-
-	// Create the output directory if it doesn't exist
-	const outputDir = path.dirname(outputPath)
-	if (!fs.existsSync(outputDir)) {
-		fs.mkdirSync(outputDir, { recursive: true })
-	}
-
-	return new Promise((resolve, reject) => {
-		console.log(`Downloading video from: ${url} to: ${outputPath}`)
-
-		ffmpeg(url)
-			.output(outputPath)
-			.outputOptions(['-c', 'copy']) // Copy without re-encoding
-			.on('start', commandLine => {
-				console.log('FFmpeg download command:', commandLine)
-			})
-			.on('progress', progress => {
-				console.log(`Download progress: ${Math.round(progress.percent || 0)}%`)
-			})
-			.on('end', () => {
-				console.log('Video download completed successfully')
-				resolve()
-			})
-			.on('error', err => {
-				console.error('FFmpeg download error:', err)
-				reject(new Error(`Failed to download video: ${err.message}`))
-			})
-			.run()
-	})
-}
-
-/**
  * Process an audio file for transcription (compress and optimize)
- * @param {string} audioPath Path to the audio file
- * @returns {Promise<string>} Path to the processed audio file
  */
-async function processAudio(audioPath) {
+export async function processAudio(audioPath: string): Promise<string> {
 	// Verify FFmpeg is available before proceeding
 	const isAvailable = await isInstalled()
 	if (!isAvailable) {
@@ -436,16 +361,18 @@ async function processAudio(audioPath) {
 								)
 								resolve(outputPath2)
 							})
-							.on('error', err => reject(new Error(`Failed to ultra-compress audio: ${err.message}`)))
+							.on('error', (err: Error) =>
+								reject(new Error(`Failed to ultra-compress audio: ${err.message}`))
+							)
 							.run()
 					} else {
 						resolve(outputPath)
 					}
-				} catch (statErr) {
+				} catch (statErr: any) {
 					reject(new Error(`Failed to check processed audio file: ${statErr.message}`))
 				}
 			})
-			.on('error', err => {
+			.on('error', (err: Error) => {
 				console.error('FFmpeg audio processing error:', err)
 				reject(new Error(`Failed to process audio: ${err.message}`))
 			})
@@ -453,11 +380,74 @@ async function processAudio(audioPath) {
 	})
 }
 
-module.exports = {
-	isInstalled,
-	extractAudio,
-	processAudio,
-	getVideoDuration,
-	downloadVideo,
-	getBinaryInfo
+/**
+ * Get the duration of a video file
+ */
+export async function getVideoDuration(videoPath: string): Promise<number> {
+	// Verify FFmpeg is available before proceeding
+	const isAvailable = await isInstalled()
+	if (!isAvailable) {
+		throw new Error('FFmpeg is not available. Please ensure the application was installed correctly.')
+	}
+
+	return new Promise((resolve, reject) => {
+		console.log(`Getting duration for video: ${videoPath}`)
+
+		ffmpeg.ffprobe(videoPath, (err, metadata) => {
+			if (err) {
+				console.error('FFprobe error:', err)
+				reject(new Error(`Failed to get video duration: ${err.message}`))
+				return
+			}
+
+			if (!metadata || !metadata.format) {
+				reject(new Error('Invalid video metadata'))
+				return
+			}
+
+			const duration = metadata.format.duration
+			console.log(`Video duration: ${duration} seconds`)
+			resolve(duration || 0)
+		})
+	})
+}
+
+/**
+ * Download a video from a URL
+ */
+export async function downloadVideo(url: string, outputPath: string): Promise<void> {
+	// Verify FFmpeg is available before proceeding
+	const isAvailable = await isInstalled()
+	if (!isAvailable) {
+		throw new Error('FFmpeg is not available. Please ensure the application was installed correctly.')
+	}
+
+	// Create the output directory if it doesn't exist
+	const outputDir = path.dirname(outputPath)
+	if (!fs.existsSync(outputDir)) {
+		fs.mkdirSync(outputDir, { recursive: true })
+	}
+
+	return new Promise((resolve, reject) => {
+		console.log(`Downloading video from: ${url} to: ${outputPath}`)
+
+		ffmpeg(url)
+			.output(outputPath)
+			.outputOptions(['-c', 'copy']) // Copy without re-encoding
+			.on('start', commandLine => {
+				console.log('FFmpeg download command:', commandLine)
+			})
+			.on('progress', progress => {
+				console.log(`Download progress: ${Math.round(progress.percent || 0)}%`)
+			})
+			.on('end', () => {
+				console.log('Video download completed successfully')
+				resolve()
+			})
+			.on('error', (err: Error) => {
+				console.error('FFmpeg download error:', err)
+				reject(new Error(`Failed to download video: ${err.message}`))
+			})
+			.run()
+	})
 }

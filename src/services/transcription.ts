@@ -1,14 +1,29 @@
-const axios = require('axios')
-const FormData = require('form-data')
-const fs = require('fs')
+import axios from 'axios'
+import * as FormData from 'form-data'
+import * as fs from 'fs'
+
+interface TranscriptionConfig {
+	apiKey: string
+	host?: string
+	whisperModel?: string
+}
+
+interface Segment {
+	start: number
+	end: number
+	text: string
+}
+
+interface TranscriptionResponse {
+	text: string
+	segments?: Segment[]
+}
 
 /**
- * Format segments data into markdown with timestamps
- * @param {Array} segments Array of segment objects with start, end, and text properties
- * @returns {string} Formatted markdown transcription with timestamps
+ * Format segments to markdown with timestamps
  */
-function formatSegmentsToMarkdown(segments) {
-	if (!segments || !Array.isArray(segments)) {
+function formatSegmentsToMarkdown(segments: Segment[]): string {
+	if (!segments || segments.length === 0) {
 		return ''
 	}
 
@@ -26,10 +41,8 @@ function formatSegmentsToMarkdown(segments) {
 
 /**
  * Format seconds to timestamp (HH:MM:SS)
- * @param {number} seconds Time in seconds
- * @returns {string} Formatted timestamp
  */
-function formatTimestamp(seconds) {
+function formatTimestamp(seconds: number): string {
 	// Round to nearest second for better accuracy
 	const totalSeconds = Math.round(seconds)
 	const hours = Math.floor(totalSeconds / 3600)
@@ -43,13 +56,13 @@ function formatTimestamp(seconds) {
 
 /**
  * Transcribe audio using OpenAI-compatible Whisper API
- * @param {string} audioPath Path to the audio file
- * @param {string} serviceType Service type (should be 'openai' or 'custom')
- * @param {Object} config Configuration options
- * @param {string} language Language code (optional)
- * @returns {Promise<string>} Timestamped transcription in markdown format
  */
-async function transcribe(audioPath, serviceType, config, language = null) {
+export async function transcribe(
+	audioPath: string,
+	serviceType: string,
+	config: TranscriptionConfig,
+	language: string | null = null
+): Promise<string> {
 	console.log('🎙️ Transcription request details:')
 	console.log('   Service Type:', serviceType)
 	console.log('   Audio Path:', audioPath)
@@ -74,12 +87,12 @@ async function transcribe(audioPath, serviceType, config, language = null) {
 
 /**
  * Transcribe audio using OpenAI Whisper API
- * @param {string} audioPath Path to the audio file
- * @param {Object} options Transcription options
- * @param {string} language Language code (optional)
- * @returns {Promise<string>} Timestamped transcription in markdown format
  */
-async function transcribeWithOpenAI(audioPath, options, language = null) {
+async function transcribeWithOpenAI(
+	audioPath: string,
+	options: TranscriptionConfig,
+	language: string | null = null
+): Promise<string> {
 	const { apiKey } = options
 
 	if (!apiKey) {
@@ -108,7 +121,7 @@ async function transcribeWithOpenAI(audioPath, options, language = null) {
 			}
 		})
 
-		const { segments, text } = response.data
+		const { segments, text }: TranscriptionResponse = response.data
 
 		if (segments && segments.length > 0) {
 			const formattedTranscription = formatSegmentsToMarkdown(segments)
@@ -126,7 +139,7 @@ async function transcribeWithOpenAI(audioPath, options, language = null) {
 			console.log('✅ OpenAI transcription completed, length:', text.length, 'characters')
 			return text
 		}
-	} catch (error) {
+	} catch (error: any) {
 		console.error('❌ OpenAI transcription error:', error.response?.data || error.message)
 		throw new Error(`Failed to transcribe with OpenAI: ${error.message}`)
 	}
@@ -134,12 +147,12 @@ async function transcribeWithOpenAI(audioPath, options, language = null) {
 
 /**
  * Transcribe audio using custom OpenAI-compatible API
- * @param {string} audioPath Path to the audio file
- * @param {Object} options Transcription options
- * @param {string} language Language code (optional)
- * @returns {Promise<string>} Timestamped transcription in markdown format
  */
-async function transcribeWithCustomAPI(audioPath, options, language = null) {
+async function transcribeWithCustomAPI(
+	audioPath: string,
+	options: TranscriptionConfig,
+	language: string | null = null
+): Promise<string> {
 	const { apiKey, host, whisperModel = 'whisper-1' } = options
 
 	if (!host) {
@@ -162,7 +175,7 @@ async function transcribeWithCustomAPI(audioPath, options, language = null) {
 		formData.append('language', language)
 	}
 
-	const headers = {
+	const headers: any = {
 		...formData.getHeaders()
 	}
 
@@ -180,7 +193,7 @@ async function transcribeWithCustomAPI(audioPath, options, language = null) {
 
 		const response = await axios.post(endpoint, formData, { headers })
 
-		const { segments, text } = response.data
+		const { segments, text }: TranscriptionResponse = response.data
 
 		if (segments && segments.length > 0) {
 			const formattedTranscription = formatSegmentsToMarkdown(segments)
@@ -198,14 +211,8 @@ async function transcribeWithCustomAPI(audioPath, options, language = null) {
 			console.log('✅ Custom API transcription completed, length:', text.length, 'characters')
 			return text
 		}
-	} catch (error) {
+	} catch (error: any) {
 		console.error('❌ Custom API transcription error:', error.response?.data || error.message)
 		throw new Error(`Failed to transcribe with custom API: ${error.message}`)
 	}
-}
-
-module.exports = {
-	transcribe,
-	transcribeWithOpenAI,
-	transcribeWithCustomAPI
 }

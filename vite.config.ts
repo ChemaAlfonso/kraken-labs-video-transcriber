@@ -11,10 +11,6 @@ export default defineConfig({
 		}
 	},
 	base: './',
-	build: {
-		outDir: 'dist',
-		emptyOutDir: true
-	},
 	// Vite options tailored for Electron development
 	clearScreen: false,
 	server: {
