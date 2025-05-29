@@ -1,0 +1,88 @@
+const { VitePlugin } = require('@electron-forge/plugin-vite')
+
+module.exports = {
+	packagerConfig: {
+		asar: true,
+		name: 'Kraken Labs Video Transcriber',
+		icon: './src/assets/icons/kkvideo',
+		appBundleId: 'com.krakenlabs.videotranscriber',
+		appCategoryType: 'public.app-category.productivity',
+		asarUnpack: '**/node_modules/@ffmpeg-installer/**/*',
+		...(process.platform === 'darwin' && {
+			icon: './src/assets/icons/kkvideo.icns'
+		}),
+		...(process.platform === 'win32' && {
+			icon: './src/assets/icons/kkvideo.ico'
+		}),
+		...(process.platform === 'linux' && {
+			icon: './src/assets/icons/kkvideo.png'
+		})
+	},
+	rebuildConfig: {},
+	makers: [
+		{
+			name: '@electron-forge/maker-squirrel',
+			config: {
+				name: 'kraken-labs-video-transcriber',
+				iconUrl:
+					'https://raw.githubusercontent.com/chemaalfonso/kraken-labs-video-transcriber/main/src/assets/icons/kkvideo.ico',
+				setupIcon: './src/assets/icons/kkvideo.ico'
+			}
+		},
+		{
+			name: '@electron-forge/maker-zip',
+			platforms: ['darwin'],
+			config: {
+				icon: './src/assets/icons/kkvideo.icns'
+			}
+		},
+		{
+			name: '@electron-forge/maker-deb',
+			config: {
+				options: {
+					name: 'kraken-labs-video-transcriber',
+					productName: 'Kraken Labs Video Transcriber',
+					genericName: 'Video Transcriber',
+					description: 'AI-powered video transcription and content indexing tool',
+					categories: ['AudioVideo', 'Office'],
+					icon: './src/assets/icons/kkvideo.png'
+				}
+			}
+		},
+		{
+			name: '@electron-forge/maker-rpm',
+			config: {
+				options: {
+					name: 'kraken-labs-video-transcriber',
+					productName: 'Kraken Labs Video Transcriber',
+					genericName: 'Video Transcriber',
+					description: 'AI-powered video transcription and content indexing tool',
+					categories: ['AudioVideo', 'Office'],
+					icon: './src/assets/icons/kkvideo.png'
+				}
+			}
+		}
+	],
+	plugins: [
+		{
+			name: '@electron-forge/plugin-auto-unpack-natives',
+			config: {}
+		},
+		new VitePlugin({
+			// `build` can specify multiple entry points for different files
+			build: [
+				{
+					// `entry` is the path to the entry file
+					entry: 'src/main.ts',
+					config: 'vite.config.ts'
+				}
+			],
+			renderer: [
+				{
+					name: 'main_window',
+					config: 'vite.config.ts'
+				}
+			]
+		})
+	]
+}
