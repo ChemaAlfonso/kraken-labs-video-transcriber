@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Kraken Labs Video Transcriber - AI-Powered Video Content Indexing</title>
+		<meta
+			name="description"
+			content="A powerful desktop application that transcribes videos and generates AI-powered content indexes using OpenAI Whisper and compatible APIs."
+		/>
+		<link rel="icon" href="kkvideo.png" type="image/png" />
+
+		<!-- Tailwind CSS -->
+		<script src="https://cdn.tailwindcss.com"></script>
+
+		<!-- Custom CSS -->
+		<style>
+			.gradient-bg {
+				background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+			}
+
+			.glass-card {
+				backdrop-filter: blur(16px) saturate(180%);
+				background-color: rgba(255, 255, 255, 0.75);
+				border: 1px solid rgba(209, 213, 219, 0.3);
+			}
+
+			.dark .glass-card {
+				background-color: rgba(17, 24, 39, 0.75);
+				border: 1px solid rgba(75, 85, 99, 0.3);
+			}
+
+			.screenshot {
+				transition: transform 0.3s ease, box-shadow 0.3s ease;
+			}
+
+			.screenshot:hover {
+				transform: scale(1.05);
+				box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+			}
+
+			.feature-card {
+				transition: transform 0.2s ease, box-shadow 0.2s ease;
+			}
+
+			.feature-card:hover {
+				transform: translateY(-4px);
+				box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+			}
+
+			@keyframes float {
+				0%,
+				100% {
+					transform: translateY(0px);
+				}
+				50% {
+					transform: translateY(-10px);
+				}
+			}
+
+			.float-animation {
+				animation: float 3s ease-in-out infinite;
+			}
+		</style>
+	</head>
+	<body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+		<!-- Navigation -->
+		<nav class="fixed top-0 w-full z-50 glass-card">
+			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+				<div class="flex justify-between h-16">
+					<div class="flex items-center">
+						<img src="kkvideo.png" alt="Kraken Labs Video Transcriber" class="w-8 h-8 mr-3 rounded" />
+						<span class="text-2xl font-bold gradient-bg bg-clip-text text-transparent"
+							>Kraken Labs Video Transcriber</span
+						>
+					</div>
+					<div class="flex items-center space-x-4">
+						<a
+							href="#features"
+							class="text-gray-600 dark:text-gray-300 hover:text-indigo-600 px-3 py-2 rounded-md text-sm font-medium"
+							>Features</a
+						>
+						<a
+							href="#screenshots"
+							class="text-gray-600 dark:text-gray-300 hover:text-indigo-600 px-3 py-2 rounded-md text-sm font-medium"
+							>Screenshots</a
+						>
+						<a
+							href="#usage"
+							class="text-gray-600 dark:text-gray-300 hover:text-indigo-600 px-3 py-2 rounded-md text-sm font-medium"
+							>Usage</a
+						>
+						<a
+							href="https://github.com/chemaalfonso/kraken-labs-video-transcriber"
+							class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+							>GitHub</a
+						>
+					</div>
+				</div>
+			</div>
+		</nav>
+
+		<!-- Hero Section -->
+		<section class="pt-20 pb-16 gradient-bg">
+			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+				<div class="text-center">
+					<div class="float-animation inline-block text-8xl mb-8">🎬</div>
+
+					<h1 class="text-4xl md:text-6xl font-bold text-white mb-6">
+						AI-Powered Video<br />
+						<span class="text-yellow-300">Content Indexing</span>
+					</h1>
+					<p class="text-xl md:text-2xl text-indigo-100 mb-8 max-w-3xl mx-auto">
+						Transform your videos into searchable content with AI transcription and intelligent indexing
+						using OpenAI Whisper and compatible APIs.
+					</p>
+					<div class="flex flex-col sm:flex-row gap-4 justify-center">
+						<a
+							href="https://github.com/chemaalfonso/kraken-labs-video-transcriber/releases"
+							class="bg-white text-indigo-600 hover:bg-gray-100 px-8 py-3 rounded-lg text-lg font-semibold transition-colors"
+						>
+							Download Latest Release
+						</a>
+						<a
+							href="https://github.com/chemaalfonso/kraken-labs-video-transcriber"
+							class="border-2 border-white text-white hover:bg-white hover:text-indigo-600 px-8 py-3 rounded-lg text-lg font-semibold transition-colors"
+						>
+							View on GitHub
+						</a>
+					</div>
+				</div>
+			</div>
+		</section>
+
+		<!-- Features Section -->
+		<section id="features" class="py-16 bg-white dark:bg-gray-800">
+			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+				<div class="text-center mb-16">
+					<h2 class="text-3xl md:text-4xl font-bold mb-4">Powerful Features</h2>
+					<p class="text-xl text-gray-600 dark:text-gray-300">
+						Everything you need for professional video content analysis
+					</p>
+				</div>
+
+				<div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+					<!-- Feature 1 -->
+					<div
+						class="feature-card bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-900 dark:to-indigo-800 p-8 rounded-xl"
+					>
+						<div class="text-4xl mb-4">🎥</div>
+						<h3 class="text-xl font-semibold mb-3">Video Processing</h3>
+						<p class="text-gray-600 dark:text-gray-300">
+							Extract audio from any video format using bundled FFmpeg. No external dependencies required.
+						</p>
+					</div>
+
+					<!-- Feature 2 -->
+					<div
+						class="feature-card bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-900 dark:to-emerald-800 p-8 rounded-xl"
+					>
+						<div class="text-4xl mb-4">🗣️</div>
+						<h3 class="text-xl font-semibold mb-3">AI Transcription</h3>
+						<p class="text-gray-600 dark:text-gray-300">
+							Accurate speech-to-text using OpenAI Whisper API and compatible services.
+						</p>
+					</div>
+
+					<!-- Feature 3 -->
+					<div
+						class="feature-card bg-gradient-to-br from-purple-50 to-violet-100 dark:from-purple-900 dark:to-violet-800 p-8 rounded-xl"
+					>
+						<div class="text-4xl mb-4">📋</div>
+						<h3 class="text-xl font-semibold mb-3">Content Indexing</h3>
+						<p class="text-gray-600 dark:text-gray-300">
+							Generate detailed content indexes and summaries using advanced AI models.
+						</p>
+					</div>
+
+					<!-- Feature 4 -->
+					<div
+						class="feature-card bg-gradient-to-br from-orange-50 to-red-100 dark:from-orange-900 dark:to-red-800 p-8 rounded-xl"
+					>
+						<div class="text-4xl mb-4">🔧</div>
+						<h3 class="text-xl font-semibold mb-3">Multiple API Support</h3>
+						<p class="text-gray-600 dark:text-gray-300">
+							Works with OpenAI, Groq, local LLaMA servers, Ollama, and any OpenAI-compatible API.
+						</p>
+					</div>
+
+					<!-- Feature 5 -->
+					<div
+						class="feature-card bg-gradient-to-br from-teal-50 to-cyan-100 dark:from-teal-900 dark:to-cyan-800 p-8 rounded-xl"
+					>
+						<div class="text-4xl mb-4">💾</div>
+						<h3 class="text-xl font-semibold mb-3">Results Management</h3>
+						<p class="text-gray-600 dark:text-gray-300">
+							Save, organize, and manage all your transcription results in a local SQLite database.
+						</p>
+					</div>
+
+					<!-- Feature 6 -->
+					<div
+						class="feature-card bg-gradient-to-br from-pink-50 to-rose-100 dark:from-pink-900 dark:to-rose-800 p-8 rounded-xl"
+					>
+						<div class="text-4xl mb-4">🖥️</div>
+						<h3 class="text-xl font-semibold mb-3">Cross-Platform</h3>
+						<p class="text-gray-600 dark:text-gray-300">
+							Available for Windows, macOS, and Linux with a modern desktop interface.
+						</p>
+					</div>
+				</div>
+			</div>
+		</section>
+
+		<!-- Screenshots Section -->
+		<section id="screenshots" class="py-16 bg-gray-50 dark:bg-gray-900">
+			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+				<div class="text-center mb-16">
+					<h2 class="text-3xl md:text-4xl font-bold mb-4">See It In Action</h2>
+					<p class="text-xl text-gray-600 dark:text-gray-300">
+						Explore the intuitive interface and powerful features
+					</p>
+				</div>
+
+				<div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+					<div class="screenshot">
+						<img src="generator.png" alt="Main Interface" class="w-full h-auto rounded-lg shadow-lg" />
+						<h4 class="text-lg font-semibold mt-4 text-center">Main Interface</h4>
+						<p class="text-gray-600 dark:text-gray-300 text-center mt-2">
+							Clean and intuitive video processing interface
+						</p>
+					</div>
+
+					<div class="screenshot">
+						<img
+							src="configuration.png"
+							alt="Configuration Settings"
+							class="w-full h-auto rounded-lg shadow-lg"
+						/>
+						<h4 class="text-lg font-semibold mt-4 text-center">Configuration</h4>
+						<p class="text-gray-600 dark:text-gray-300 text-center mt-2">
+							Easy API configuration and model selection
+						</p>
+					</div>
+
+					<div class="screenshot">
+						<img
+							src="generations-list.png"
+							alt="Generations List"
+							class="w-full h-auto rounded-lg shadow-lg"
+						/>
+						<h4 class="text-lg font-semibold mt-4 text-center">Generations List</h4>
+						<p class="text-gray-600 dark:text-gray-300 text-center mt-2">
+							View and manage all your processed content
+						</p>
+					</div>
+
+					<div class="screenshot">
+						<img
+							src="generation-single-modal.png"
+							alt="Content Index View"
+							class="w-full h-auto rounded-lg shadow-lg"
+						/>
+						<h4 class="text-lg font-semibold mt-4 text-center">Content Index View</h4>
+						<p class="text-gray-600 dark:text-gray-300 text-center mt-2">
+							Detailed view of generated content indexes
+						</p>
+					</div>
+
+					<div class="screenshot">
+						<img
+							src="default-llm-settings.png"
+							alt="LLM Settings"
+							class="w-full h-auto rounded-lg shadow-lg"
+						/>
+						<h4 class="text-lg font-semibold mt-4 text-center">LLM Settings</h4>
+						<p class="text-gray-600 dark:text-gray-300 text-center mt-2">
+							Configure AI model settings and parameters
+						</p>
+					</div>
+
+					<div class="screenshot">
+						<img
+							src="configuration-notes.png"
+							alt="Configuration Notes"
+							class="w-full h-auto rounded-lg shadow-lg"
+						/>
+						<h4 class="text-lg font-semibold mt-4 text-center">Configuration Notes</h4>
+						<p class="text-gray-600 dark:text-gray-300 text-center mt-2">
+							Additional configuration options and settings
+						</p>
+					</div>
+
+					<div class="screenshot">
+						<img
+							src="export-generation-modal.png"
+							alt="Export Options"
+							class="w-full h-auto rounded-lg shadow-lg"
+						/>
+						<h4 class="text-lg font-semibold mt-4 text-center">Export Options</h4>
+						<p class="text-gray-600 dark:text-gray-300 text-center mt-2">
+							Export your results in various formats
+						</p>
+					</div>
+				</div>
+			</div>
+		</section>
+
+		<!-- Usage Guide Section -->
+		<section id="usage" class="py-16 bg-white dark:bg-gray-800">
+			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+				<div class="text-center mb-16">
+					<h2 class="text-3xl md:text-4xl font-bold mb-4">How to Use</h2>
+					<p class="text-xl text-gray-600 dark:text-gray-300">Get started in just a few simple steps</p>
+				</div>
+
+				<div class="max-w-4xl mx-auto">
+					<div class="space-y-8">
+						<!-- Step 1 -->
+						<div class="flex items-start space-x-6">
+							<div
+								class="flex-shrink-0 w-12 h-12 bg-indigo-600 text-white rounded-full flex items-center justify-center text-xl font-bold"
+							>
+								1
+							</div>
+							<div>
+								<h3 class="text-xl font-semibold mb-2">Download & Install</h3>
+								<p class="text-gray-600 dark:text-gray-300">
+									Download the latest release from GitHub and install on your Windows, macOS, or Linux
+									system. No additional dependencies required.
+								</p>
+							</div>
+						</div>
+
+						<!-- Step 2 -->
+						<div class="flex items-start space-x-6">
+							<div
+								class="flex-shrink-0 w-12 h-12 bg-indigo-600 text-white rounded-full flex items-center justify-center text-xl font-bold"
+							>
+								2
+							</div>
+							<div>
+								<h3 class="text-xl font-semibold mb-2">Configure APIs</h3>
+								<p class="text-gray-600 dark:text-gray-300">
+									Set up your API credentials in the Configuration page. Add OpenAI API keys or
+									configure custom OpenAI-compatible endpoints (Groq, Ollama, etc.).
+								</p>
+							</div>
+						</div>
+
+						<!-- Step 3 -->
+						<div class="flex items-start space-x-6">
+							<div
+								class="flex-shrink-0 w-12 h-12 bg-indigo-600 text-white rounded-full flex items-center justify-center text-xl font-bold"
+							>
+								3
+							</div>
+							<div>
+								<h3 class="text-xl font-semibold mb-2">Select Video</h3>
+								<p class="text-gray-600 dark:text-gray-300">
+									Choose a local video file from your computer. The app supports most video formats
+									and will automatically extract audio for processing.
+								</p>
+							</div>
+						</div>
+
+						<!-- Step 4 -->
+						<div class="flex items-start space-x-6">
+							<div
+								class="flex-shrink-0 w-12 h-12 bg-indigo-600 text-white rounded-full flex items-center justify-center text-xl font-bold"
+							>
+								4
+							</div>
+							<div>
+								<h3 class="text-xl font-semibold mb-2">Configure & Process</h3>
+								<p class="text-gray-600 dark:text-gray-300">
+									Set your title, language, and generation prompt. Choose your preferred transcription
+									and AI services, then click "Generate Content Index" to start processing.
+								</p>
+							</div>
+						</div>
+
+						<!-- Step 5 -->
+						<div class="flex items-start space-x-6">
+							<div
+								class="flex-shrink-0 w-12 h-12 bg-indigo-600 text-white rounded-full flex items-center justify-center text-xl font-bold"
+							>
+								5
+							</div>
+							<div>
+								<h3 class="text-xl font-semibold mb-2">View Results</h3>
+								<p class="text-gray-600 dark:text-gray-300">
+									Access your transcriptions and AI-generated content indexes from the Generations
+									page. Results are saved locally for future reference.
+								</p>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</section>
+
+		<!-- Supported Services Section -->
+		<section class="py-16 bg-gray-50 dark:bg-gray-900">
+			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+				<div class="text-center mb-16">
+					<h2 class="text-3xl md:text-4xl font-bold mb-4">Supported Services</h2>
+					<p class="text-xl text-gray-600 dark:text-gray-300">
+						Works with popular AI services and custom endpoints
+					</p>
+				</div>
+
+				<div class="grid md:grid-cols-2 gap-8">
+					<div class="bg-white dark:bg-gray-800 p-8 rounded-xl shadow-lg">
+						<h3 class="text-2xl font-semibold mb-6 flex items-center">
+							<span class="text-3xl mr-3">🗣️</span>
+							Transcription Services
+						</h3>
+						<ul class="space-y-3">
+							<li class="flex items-center">
+								<span class="text-green-500 mr-3">✓</span>
+								OpenAI Whisper API
+							</li>
+							<li class="flex items-center">
+								<span class="text-green-500 mr-3">✓</span>
+								Custom OpenAI-compatible endpoints
+							</li>
+							<li class="flex items-center">
+								<span class="text-green-500 mr-3">✓</span>
+								Local Whisper implementations
+							</li>
+						</ul>
+					</div>
+
+					<div class="bg-white dark:bg-gray-800 p-8 rounded-xl shadow-lg">
+						<h3 class="text-2xl font-semibold mb-6 flex items-center">
+							<span class="text-3xl mr-3">🤖</span>
+							AI/LLM Services
+						</h3>
+						<ul class="space-y-3">
+							<li class="flex items-center">
+								<span class="text-green-500 mr-3">✓</span>
+								OpenAI GPT models
+							</li>
+							<li class="flex items-center">
+								<span class="text-green-500 mr-3">✓</span>
+								Groq (fast inference)
+							</li>
+							<li class="flex items-center">
+								<span class="text-green-500 mr-3">✓</span>
+								Ollama with OpenAI compatibility
+							</li>
+							<li class="flex items-center">
+								<span class="text-green-500 mr-3">✓</span>
+								Local LLaMA.cpp servers
+							</li>
+							<li class="flex items-center">
+								<span class="text-green-500 mr-3">✓</span>
+								Any OpenAI-compatible API
+							</li>
+						</ul>
+					</div>
+				</div>
+			</div>
+		</section>
+
+		<!-- Installation Section -->
+		<section class="py-16 bg-white dark:bg-gray-800">
+			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+				<div class="text-center mb-16">
+					<h2 class="text-3xl md:text-4xl font-bold mb-4">Installation</h2>
+					<p class="text-xl text-gray-600 dark:text-gray-300">Choose your installation method</p>
+				</div>
+
+				<div class="grid lg:grid-cols-2 gap-8">
+					<!-- Binary Installation -->
+					<div
+						class="bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-900 dark:to-indigo-800 p-8 rounded-xl"
+					>
+						<h3 class="text-2xl font-semibold mb-4 flex items-center">
+							<span class="text-3xl mr-3">📦</span>
+							Download Binary
+						</h3>
+						<p class="text-gray-600 dark:text-gray-300 mb-6">Ready-to-use applications for all platforms</p>
+						<a
+							href="https://github.com/chemaalfonso/kraken-labs-video-transcriber/releases"
+							class="inline-block bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
+						>
+							Download Latest Release
+						</a>
+					</div>
+
+					<!-- Build from Source -->
+					<div
+						class="bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-900 dark:to-emerald-800 p-8 rounded-xl"
+					>
+						<h3 class="text-2xl font-semibold mb-4 flex items-center">
+							<span class="text-3xl mr-3">🔧</span>
+							Build from Source
+						</h3>
+						<p class="text-gray-600 dark:text-gray-300 mb-4">For developers and customization</p>
+						<div class="bg-gray-800 text-green-400 p-4 rounded-lg font-mono text-sm mb-4">
+							<div>git clone https://github.com/chemaalfonso/kraken-labs-video-transcriber</div>
+							<div>cd kraken-labs-video-transcriber</div>
+							<div>npm install</div>
+							<div>npm run build</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</section>
+
+		<!-- Footer -->
+		<footer class="gradient-bg text-white py-12">
+			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+				<div class="grid md:grid-cols-3 gap-8">
+					<div>
+						<h3 class="text-xl font-semibold mb-4">Kraken Labs Video Transcriber</h3>
+						<p class="text-indigo-100">AI-powered video content indexing made simple and accessible.</p>
+					</div>
+
+					<div>
+						<h4 class="text-lg font-semibold mb-4">Links</h4>
+						<ul class="space-y-2">
+							<li>
+								<a
+									href="https://github.com/chemaalfonso/kraken-labs-video-transcriber"
+									class="text-indigo-100 hover:text-white"
+									>GitHub Repository</a
+								>
+							</li>
+							<li>
+								<a
+									href="https://github.com/chemaalfonso/kraken-labs-video-transcriber/releases"
+									class="text-indigo-100 hover:text-white"
+									>Releases</a
+								>
+							</li>
+							<li>
+								<a
+									href="https://github.com/chemaalfonso/kraken-labs-video-transcriber/issues"
+									class="text-indigo-100 hover:text-white"
+									>Issues & Support</a
+								>
+							</li>
+						</ul>
+					</div>
+
+					<div>
+						<h4 class="text-lg font-semibold mb-4">About</h4>
+						<p class="text-indigo-100 mb-2">Created by Chema Alfonso</p>
+						<p class="text-indigo-100 mb-2">Licensed under LGPL-3.0-or-later</p>
+						<a href="https://krakenlabsweb.com" class="text-indigo-100 hover:text-white"
+							>krakenlabsweb.com</a
+						>
+					</div>
+				</div>
+
+				<div class="border-t border-indigo-300 mt-8 pt-8 text-center">
+					<p class="text-indigo-100">&copy; 2025 Kraken Labs. All rights reserved.</p>
+				</div>
+			</div>
+		</footer>
+
+		<!-- Smooth scrolling script -->
+		<script>
+			// Smooth scrolling for anchor links
+			document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+				anchor.addEventListener('click', function (e) {
+					e.preventDefault()
+					document.querySelector(this.getAttribute('href')).scrollIntoView({
+						behavior: 'smooth'
+					})
+				})
+			})
+
+			// Add scroll effect to navigation
+			window.addEventListener('scroll', function () {
+				const nav = document.querySelector('nav')
+				if (window.scrollY > 100) {
+					nav.classList.add('bg-white/90', 'dark:bg-gray-900/90')
+				} else {
+					nav.classList.remove('bg-white/90', 'dark:bg-gray-900/90')
+				}
+			})
+		</script>
+	</body>
+</html>
