@@ -51,6 +51,76 @@ A desktop application built with Electron and Vue.js that transcribes videos and
 4. **Generate**: Click "Generate Content Index" to process the video
 5. **View Results**: Access your generated content indexes from the Generations page
 
+## Recommended Setup
+
+For optimal **performance and affordability**, we recommend the following configuration:
+
+### 🎯 Best Practice Configuration
+
+-   **Transcription**: Local Whisper model (Turbo or Medium recommended)
+-   **AI/LLM**: OpenAI GPT-4o Mini via API
+
+This setup provides excellent transcription quality while keeping costs low for content generation.
+
+### 🐳 Setting Up Local Whisper
+
+Our application includes a pre-configured Whisper service that runs locally using Docker:
+
+1. **Prerequisites**: Ensure Docker and Docker Compose are installed on your system
+
+2. **Start the Whisper service**:
+
+    ```bash
+    # Navigate to the whisper service directory
+    cd services/whisper
+
+    # Start the service (builds automatically on first run)
+    docker-compose up --build -d
+
+    # Verify it's running
+    curl http://localhost:5001/status
+    ```
+
+3. **Configure in the app**:
+    - Go to Configuration → Custom API
+    - Set the endpoint URL to: `http://localhost:5001`
+    - Model: `turbo`
+    - No API key required for local service
+
+**Model Recommendations**:
+
+-   **Whisper Turbo**: Best balance of speed and accuracy
+-   **Whisper Medium**: Good accuracy, reasonable speed
+-   **Whisper Small**: Faster but less accurate
+
+### 🔑 Setting Up OpenAI API
+
+1. **Get your API key**:
+
+    - Visit [OpenAI Platform](https://platform.openai.com)
+    - Sign up or log in to your account
+    - Navigate to API Keys section
+    - Create a new API key and copy it
+
+2. **Configure in the app**:
+
+    - Go to Configuration → OpenAI
+    - Enter your API key
+    - Set model to: `gpt-4o-mini`
+    - Configure other preferences as needed
+
+3. **OpenAI Privacy Policy**:
+
+    - You can set [sharing preferences](https://platform.openai.com/settings/organization/data-controls/sharing) to control how your data is used (not used to train models by default with OpenAI).
+
+### 💡 Why This Setup?
+
+-   **Cost-effective**: Local Whisper eliminates transcription API costs
+-   **High-quality**: Whisper provides excellent transcription accuracy
+-   **Fast content generation**: GPT-4o Mini offers great quality-to-cost ratio
+-   **Privacy**: Audio never leaves your machine during transcription
+-   **Reliable**: Local transcription works offline
+
 ## API Compatibility
 
 This application works with any OpenAI-compatible API endpoints. Popular options include:
