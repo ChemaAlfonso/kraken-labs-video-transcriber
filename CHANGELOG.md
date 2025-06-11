@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2025-06-11
 ### Enhanced
 
 -   **Dynamic Token Optimization**: Implemented intelligent token calculation system for AI content generation
