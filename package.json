@@ -24,9 +24,9 @@
 		"make:linux": "electron-forge make --platform=linux --arch=x64",
 		"make:all": "npm run make:macos && npm run make:windows && npm run make:linux",
 		"clean": "rm -rf out",
-		"release:prepare": "npm run make:all",
-		"release:tag": "node scripts/tag-release.js",
-		"release": "node scripts/create-release-manual.js"
+		"release:major": "node scripts/release.js major",
+		"release:minor": "node scripts/release.js minor",
+		"release:patch": "node scripts/release.js patch"
 	},
 	"dependencies": {
 		"@ffmpeg-installer/ffmpeg": "^1.1.0",
