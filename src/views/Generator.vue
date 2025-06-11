@@ -52,7 +52,7 @@
       <div class="mb-4">
         <label class="block text-sm font-medium text-gray-700 mb-2">Language</label>
         <select v-model="language" class="w-full p-2 border rounded" :disabled="isGenerating">
-          <option value="es">Spanish (Default)</option>
+          <option value="es">Spanish</option>
           <option value="en">English</option>
           <option value="fr">French</option>
           <option value="de">German</option>
@@ -80,7 +80,7 @@
           :disabled="isGenerating"
         >
           <option v-for="systemPrompt in systemPrompts" :key="systemPrompt.id" :value="systemPrompt.id">
-            {{ systemPrompt.name }}{{ systemPrompt.is_default ? ' (Default)' : '' }}
+            {{ systemPrompt.name }}
           </option>
         </select>
         <p class="mt-1 text-xs text-gray-500">
@@ -106,7 +106,7 @@
           :disabled="isGenerating"
         >
           <option v-for="userPrompt in userPrompts" :key="userPrompt.id" :value="userPrompt.id">
-            {{ userPrompt.name }}{{ userPrompt.is_default ? ' (Default)' : '' }}
+            {{ userPrompt.name }}
           </option>
         </select>
         <textarea 
