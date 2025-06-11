@@ -13,6 +13,7 @@ MODEL_MAP = {
     "small": "small",
     "medium": "medium",
     "large": "large",
+	"turbo": "turbo",
 }
 
 
