@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.1] - 2025-06-11
 ### Added
 
 -   **Comprehensive CHANGELOG.md**: Created structured changelog following Keep a Changelog format with automatic release integration
