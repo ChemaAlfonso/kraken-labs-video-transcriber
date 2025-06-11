@@ -7,7 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Enhanced
+
+-   **Dynamic Token Optimization**: Implemented intelligent token calculation system for AI content generation
+    -   Added dynamic `max_tokens` calculation based on input length to optimize model usage
+    -   Updated token limits to respect actual API constraints (16,384 max output tokens, 128K context window)
+    -   Enhanced support for large summarization sessions by maximizing available output tokens
+    -   Added detailed token calculation logging for better debugging and monitoring
+
 ## [0.8.0] - 2025-06-11
+
 ### Added
 
 -   **Generation Cancellation**: Implemented comprehensive cancellation functionality for the generation process with immediate UI feedback and clean state management
