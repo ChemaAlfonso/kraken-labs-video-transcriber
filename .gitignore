@@ -41,3 +41,10 @@ temp/
 Thumbs.db
 ehthumbs.db
 Desktop.ini
+
+# env
+.env
+
+# Ollama data
+services/ollama/data/*
+!services/ollama/data/.gitkeep

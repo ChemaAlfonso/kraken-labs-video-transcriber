@@ -1,0 +1,23 @@
+version: '3.9'
+
+services:
+    ollama:
+        image: ollama/ollama:latest
+        container_name: ollama
+        pull_policy: always
+        volumes:
+            - ./data:/root/.ollama
+        ports:
+            - '${OLLAMA_PORT:-11434}:11434'
+        env_file:
+            - .env
+        restart: unless-stopped
+        # Uncomment the following lines for NVIDIA GPU support
+        # Make sure you have NVIDIA Container Toolkit installed first
+        # deploy:
+        #   resources:
+        #     reservations:
+        #       devices:
+        #         - driver: nvidia
+        #           count: all
+        #           capabilities: [gpu]
