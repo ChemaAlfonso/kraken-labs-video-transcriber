@@ -199,10 +199,10 @@
       <!-- Default Settings -->
       <div>
         <div class="bg-white shadow rounded-lg p-6 mb-6">
-          <h2 class="text-xl font-bold mb-4">Default Settings</h2>
+          <h2 class="text-xl font-bold mb-4">Language</h2>
           
           <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Default Language</label>
+            <label class="block text-sm font-medium text-gray-700 mb-2">The generations will be generated in this language</label>
             <select v-model="defaultLanguage" class="w-full p-2 border rounded">
               <option value="es">Spanish</option>
               <option value="en">English</option>
@@ -218,7 +218,7 @@
             @click="saveDefaultSettings" 
             class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
           >
-            Save Default Settings
+            Save Language
           </button>
         </div>
 
