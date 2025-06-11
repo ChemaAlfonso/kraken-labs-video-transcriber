@@ -89,7 +89,7 @@ app.on('window-all-closed', () => {
 // File dialog handlers
 ipcMain.handle('dialog:openVideo', async () => {
 	const { canceled, filePaths } = await dialog.showOpenDialog({
-		properties: ['openFile'],
+		properties: ['openFile', 'multiSelections'],
 		filters: [
 			{
 				name: 'Video and Audio Files',
@@ -105,29 +105,7 @@ ipcMain.handle('dialog:openVideo', async () => {
 			}
 		]
 	})
-	return canceled ? null : filePaths[0]
-})
-
-// Also alias for backward compatibility
-ipcMain.handle('select-video-file', async () => {
-	const { canceled, filePaths } = await dialog.showOpenDialog({
-		properties: ['openFile'],
-		filters: [
-			{
-				name: 'Video and Audio Files',
-				extensions: ['mp4', 'avi', 'mov', 'mkv', 'mp3', 'wav', 'flac', 'm4a', 'aac', 'ogg', 'wma']
-			},
-			{
-				name: 'Video Files',
-				extensions: ['mp4', 'avi', 'mov', 'mkv', 'webm', 'wmv', '3gp', 'flv']
-			},
-			{
-				name: 'Audio Files',
-				extensions: ['mp3', 'wav', 'flac', 'm4a', 'aac', 'ogg', 'wma', 'opus', 'amr']
-			}
-		]
-	})
-	return canceled ? null : filePaths[0]
+	return canceled ? null : filePaths
 })
 
 // Database handlers
@@ -276,89 +254,6 @@ ipcMain.handle('get-ffmpeg-info', async () => {
 	}
 })
 
-// Transcription handler
-ipcMain.handle(
-	'transcribe-video',
-	async (_, { audioPath, transcriptionService: serviceType, aiService: aiServiceType, prompt, language }) => {
-		try {
-			console.log('🎬 Starting transcription process with:', { serviceType, aiServiceType, language })
-			console.log('📁 Input file path:', audioPath)
-
-			// Determine if input is audio or video
-			const fileType = utils.getFileType(audioPath)
-			console.log('📋 File type detected:', fileType)
-
-			let finalAudioPath = audioPath
-
-			// If it's a video file, extract audio first
-			if (fileType === 'video') {
-				console.log('🎬 Video file detected - extracting audio...')
-				finalAudioPath = await ffmpegService.extractAudio(audioPath)
-				console.log('✅ Audio extracted to:', finalAudioPath)
-			} else if (fileType === 'audio') {
-				console.log('🎵 Audio file detected - processing and optimizing...')
-				finalAudioPath = await ffmpegService.processAudio(audioPath)
-				console.log('✅ Audio processed and optimized to:', finalAudioPath)
-			} else {
-				throw new Error('Unsupported file type. Please select a video or audio file.')
-			}
-
-			// Get transcription service config
-			console.log('⚙️ Getting transcription service config for:', serviceType)
-			const transcriptionConfig = await db.getApiConfig(serviceType)
-			console.log('📋 Transcription config loaded (API key hidden):', {
-				...transcriptionConfig,
-				apiKey: transcriptionConfig.apiKey ? '[HIDDEN]' : '[MISSING]'
-			})
-
-			// Transcribe the audio
-			console.log('🎙️ Starting audio transcription...')
-			const transcription = await transcriptionService.transcribe(
-				finalAudioPath,
-				serviceType,
-				transcriptionConfig,
-				language
-			)
-			console.log('✅ Transcription completed, length:', transcription.length, 'characters')
-
-			// Get AI service config
-			console.log('⚙️ Getting AI service config for:', aiServiceType)
-			const aiConfig = await db.getApiConfig(aiServiceType)
-			console.log('📋 AI config loaded (API key hidden):', {
-				...aiConfig,
-				apiKey: aiConfig.apiKey ? '[HIDDEN]' : '[MISSING]'
-			})
-
-			// Get system prompt
-			console.log('📝 Getting system prompt...')
-			const systemPrompt = await db.getSystemPrompt()
-			console.log('✅ System prompt loaded, length:', systemPrompt.length, 'characters')
-
-			// Generate the index
-			console.log('🤖 Starting index generation...')
-			const result = await aiService.generateIndex(
-				{
-					userPrompt: prompt,
-					transcription,
-					systemPrompt,
-					language
-				},
-				aiServiceType,
-				aiConfig
-			)
-			console.log('✅ Index generation completed, length:', result.index.length, 'characters')
-
-			return {
-				transcription,
-				index: result.index
-			}
-		} catch (error) {
-			console.error('❌ Error in transcription process:', error)
-			throw error
-		}
-	}
-)
-
 // Regenerate index handler
 ipcMain.handle('regenerate-index', async (_, { id, transcription, language, prompt }) => {
 	try {
@@ -497,3 +392,157 @@ ipcMain.handle('open-external-url', async (_, url) => {
 		throw error
 	}
 })
+
+const transcribeVideo = async (
+	audioPath: string,
+	serviceType: string,
+	aiServiceType: string,
+	prompt: string,
+	language: string
+) => {
+	try {
+		console.log('🎬 Starting transcription process with:', { serviceType, aiServiceType, language })
+		console.log('📁 Input file path:', audioPath)
+
+		// Determine if input is audio or video
+		const fileType = utils.getFileType(audioPath)
+		console.log('📋 File type detected:', fileType)
+
+		let finalAudioPath = audioPath
+
+		// If it's a video file, extract audio first
+		if (fileType === 'video') {
+			console.log('🎬 Video file detected - extracting audio...')
+			finalAudioPath = await ffmpegService.extractAudio(audioPath)
+			console.log('✅ Audio extracted to:', finalAudioPath)
+		} else if (fileType === 'audio') {
+			console.log('🎵 Audio file detected - processing and optimizing...')
+			finalAudioPath = await ffmpegService.processAudio(audioPath)
+			console.log('✅ Audio processed and optimized to:', finalAudioPath)
+		} else {
+			throw new Error('Unsupported file type. Please select a video or audio file.')
+		}
+
+		// Get transcription service config
+		console.log('⚙️ Getting transcription service config for:', serviceType)
+		const transcriptionConfig = await db.getApiConfig(serviceType)
+		console.log('📋 Transcription config loaded (API key hidden):', {
+			...transcriptionConfig,
+			apiKey: transcriptionConfig.apiKey ? '[HIDDEN]' : '[MISSING]'
+		})
+
+		// Transcribe the audio
+		console.log('🎙️ Starting audio transcription...')
+		const transcription = await transcriptionService.transcribe(
+			finalAudioPath,
+			serviceType,
+			transcriptionConfig,
+			language
+		)
+		console.log('✅ Transcription completed, length:', transcription.length, 'characters')
+
+		// Get AI service config
+		console.log('⚙️ Getting AI service config for:', aiServiceType)
+		const aiConfig = await db.getApiConfig(aiServiceType)
+		console.log('📋 AI config loaded (API key hidden):', {
+			...aiConfig,
+			apiKey: aiConfig.apiKey ? '[HIDDEN]' : '[MISSING]'
+		})
+
+		// Get system prompt
+		console.log('📝 Getting system prompt...')
+		const systemPrompt = await db.getSystemPrompt()
+		console.log('✅ System prompt loaded, length:', systemPrompt.length, 'characters')
+
+		// Generate the index
+		console.log('🤖 Starting index generation...')
+		const result = await aiService.generateIndex(
+			{
+				userPrompt: prompt,
+				transcription,
+				systemPrompt,
+				language
+			},
+			aiServiceType,
+			aiConfig
+		)
+		console.log('✅ Index generation completed, length:', result.index.length, 'characters')
+
+		return {
+			transcription,
+			index: result.index
+		}
+	} catch (error) {
+		console.error('❌ Error in transcription process:', error)
+		throw error
+	}
+}
+
+// Queue processing handler for files (single or multiple)
+ipcMain.handle(
+	'process-file-queue',
+	async (_, { filePaths, titles, transcriptionService: serviceType, aiService: aiServiceType, prompt, language }) => {
+		try {
+			console.log('📁 Starting queue processing for', filePaths.length, 'files')
+			const results = []
+
+			for (let i = 0; i < filePaths.length; i++) {
+				const filePath = filePaths[i]
+				console.log(`🔄 Processing file ${i + 1}/${filePaths.length}:`, filePath)
+
+				// Use provided title or generate from filename
+				let title = ''
+				if (titles && titles[i]) {
+					title = titles[i]
+				} else {
+					const fileName = filePath.split(/[\/\\]/).pop() || ''
+					title = fileName.split('.').slice(0, -1).join('.')
+				}
+
+				try {
+					const result = await transcribeVideo(filePath, serviceType, aiServiceType, prompt, language)
+
+					// Save the result
+					const savedResult = await db.saveTranscriptionResult({
+						title: title,
+						source: filePath,
+						language: language,
+						transcription: result.transcription,
+						index_content: result.index,
+						prompt: prompt,
+						audio_path: filePath,
+						date: new Date().toISOString()
+					})
+
+					results.push({
+						...savedResult,
+						success: true,
+						file: filePath,
+						title: title
+					})
+
+					console.log(`✅ File ${i + 1}/${filePaths.length} processed successfully:`, title)
+				} catch (error: any) {
+					console.error(`❌ Error processing file ${i + 1}/${filePaths.length}:`, error)
+					results.push({
+						success: false,
+						error: error.message || 'Unknown error',
+						file: filePath,
+						title: title
+					})
+				}
+			}
+
+			console.log(
+				'✅ Queue processing completed. Successful:',
+				results.filter(r => r.success).length,
+				'Failed:',
+				results.filter(r => !r.success).length
+			)
+			return results
+		} catch (error) {
+			console.error('❌ Error in queue processing:', error)
+			throw error
+		}
+	}
+)

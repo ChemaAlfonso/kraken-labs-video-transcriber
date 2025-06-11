@@ -1,6 +1,6 @@
 interface ElectronAPI {
 	// File dialogs
-	openVideoDialog: () => Promise<string | null>
+	openVideoDialog: () => Promise<string[] | null>
 	selectVideoFile: () => Promise<string | null>
 
 	// Media processing (video and audio)
@@ -16,6 +16,25 @@ interface ElectronAPI {
 	}>
 
 	extractAudio: (videoPath: string) => Promise<string>
+
+	processFileQueue: (params: {
+		filePaths: string[]
+		titles?: string[]
+		transcriptionService: string
+		aiService: string
+		prompt: string
+		language: string
+	}) => Promise<
+		Array<{
+			success: boolean
+			file: string
+			title?: string
+			error?: string
+			id?: number
+			transcription?: string
+			index?: string
+		}>
+	>
 
 	// Results management
 	saveResult: (data: {

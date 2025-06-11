@@ -5,19 +5,32 @@
     <div class="bg-white shadow rounded-lg p-6 mb-6">
       <div class="mb-4">
         <label class="block text-sm font-medium text-gray-700 mb-2">Media Source</label>
+		<p class="text-xs text-gray-500 mb-2 font-bold">
+			* Use ctrl/cmd + click to select multiple files.
+		</p>
         <div class="flex gap-4">
           <button 
             @click="openFileDialog" 
             class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
             :disabled="isGenerating"
           >
-            Select Video or Audio File
+            Select Video or Audio Files
           </button>
         </div>
-        <p v-if="selectedFile" class="mt-2 text-sm text-gray-600">Selected: {{ selectedFile.name }}</p>
-        <p class="mt-1 text-xs text-gray-500">
+        <p class="my-2 text-xs text-gray-500">
           Supported formats: MP4, AVI, MOV, MKV (video) • MP3, WAV, FLAC, M4A, AAC, OGG (audio)
         </p>
+        <div v-if="selectedFiles.length > 0" class="mt-2">
+          <p class="text-sm text-gray-600 mb-2">Selected {{ selectedFiles.length }} files:</p>
+          <div class="max-h-32 overflow-y-auto bg-gray-50 p-2 rounded border">
+            <div v-for="(file, index) in selectedFiles" :key="index" class="text-xs text-gray-700 py-1 flex justify-start gap-2 items-center">
+				<button @click="removeFile(index)" class="text-xs text-red-500 hover:bg-red-500 transition-colors duration-300 hover:text-white p-1 rounded-md w-6 h-6 flex items-center justify-center">✕</button>
+              <span>
+				<span class="font-bold">{{ index + 1 }}.</span> <span class="text-gray-500">{{ file.name }}</span>
+			  </span>
+            </div>
+          </div>
+        </div>
       </div>
       
       <div class="mb-4">
@@ -25,10 +38,15 @@
         <input 
           v-model="title" 
           type="text" 
-          placeholder="Enter a title for this generation" 
+		  multiple
+          :placeholder="selectedFiles.length > 1 ? 'Filenames will be used as titles for multiple files' : 'Enter a title for this generation'"
           class="w-full p-2 border rounded"
-          :disabled="isGenerating"
+          :disabled="isGenerating || selectedFiles.length > 1"
+          :class="{ 'bg-gray-100 text-gray-500': selectedFiles.length > 1 }"
         />
+        <p v-if="selectedFiles.length > 1" class="mt-1 text-xs text-red-500">
+          For multiple files, each file's name will be used as its title automatically.
+        </p>
       </div>
       
       <div class="mb-4">
@@ -145,21 +163,31 @@ export default defineComponent({
   },
   setup() {
     const router = useRouter();
-    const selectedFile = ref<File | null>(null);
+    const selectedFiles = ref<File[]>([]);
     const title = ref('');
     const language = ref('es');
     const prompt = ref('Create a detailed table of contents for this media with timestamps, highlighting the main topics and subtopics discussed. Use the transcription below:\n\n{transcription}');
     const isGenerating = ref(false);
     const generationProgress = ref<ProgressStatus | null>(null);
-    const videoPath = ref('');
     const error = ref('');
     const showConfigModal = ref(false);
     const configurationIssues = ref<ConfigurationIssue[]>([]);
 
     // Computed property to check if generation can be started
     const canGenerate = computed(() => {
-      return selectedFile.value !== null && title.value.trim() !== '';
+      return selectedFiles.value.length > 0 && (selectedFiles.value.length > 1 || title.value.trim() !== '');
     });
+
+	const removeFile = (index: number) => {
+		selectedFiles.value.splice(index, 1);
+		if (selectedFiles.value.length === 0) {
+			title.value = '';
+		} else if (selectedFiles.value.length === 1) {
+			title.value = selectedFiles.value[0].name;
+		} else {
+			title.value = `${selectedFiles.value.length} files selected`;
+		}
+	}
 
     // Check configuration validity
     const checkConfiguration = async (): Promise<ConfigurationIssue[]> => {
@@ -257,81 +285,63 @@ export default defineComponent({
       clearProgress();
       
       try {
-        console.log('🚀 Starting generation process...');
-        console.log('📋 Generation parameters:', {
-          title: title.value,
-          filePath: videoPath.value,
-          language: language.value,
-          prompt: prompt.value
-        });
-
-        // Detect file type
-        const fileExtension = videoPath.value.split('.').pop()?.toLowerCase();
-        const audioExtensions = ['mp3', 'wav', 'flac', 'm4a', 'aac', 'ogg', 'wma', 'opus', 'amr'];
-        const isAudio = audioExtensions.includes(fileExtension || '');
-
-        // Set initial progress
-        updateProgress('Starting generation process...', 0);
-        
-        let pathToProcess = '';
-        
-        if (videoPath.value) {
-          // Use the selected local file
-          pathToProcess = videoPath.value;
-          console.log('📁 Processing file:', pathToProcess);
-        } else {
-          error.value = 'No media file selected';
-          isGenerating.value = false;
-          clearProgress();
-          return;
-        }
-        
-        // Handle audio extraction or direct processing
-        if (isAudio) {
-          updateProgress('Processing and optimizing audio...', 20);
-          console.log('🎵 Audio file detected, will be processed and optimized for transcription');
-        } else {
-          updateProgress('Extracting and compressing audio from video...', 20);
-          console.log('🎬 Video file detected, audio will be extracted during processing');
-        }
-        
-        // Call transcription service
-        updateProgress('Transcribing audio...', 40);
-        
         // Get service configurations from saved settings
         const savedTranscriptionService = await window.electronAPI.getTranscriptionService();
         const savedGenerationService = await window.electronAPI.getGenerationService();
         
-        const result = await window.electronAPI.transcribeVideo({
-          audioPath: pathToProcess,
-          transcriptionService: savedTranscriptionService,
-          aiService: savedGenerationService,
-          prompt: prompt.value,
-          language: language.value
-        });
-        console.log('✅ Transcription and index generation completed');
-        
-        // Save the result
-        updateProgress('Saving result...', 90);
-        console.log('💾 Saving results to database...');
-        await window.electronAPI.saveResult({
-          title: title.value,
-          source: videoPath.value,
-          language: language.value,
-          transcription: result.transcription,
-          index: result.index,
-          prompt: prompt.value,
-          audio_path: pathToProcess
-        });
-        console.log('✅ Results saved successfully');
-        
-        updateProgress('Generation complete!', 100);
-        
-        // Clear progress and navigate after a short delay
-        setTimeout(() => {
-          clearProgress();
-          router.push('/generations');
-        }, 1000);
+        if (selectedFiles.value.length > 0) {
+			console.log('🚀 Starting files generation process...');
+			console.log('📋 Generation parameters:', {
+				filesCount: selectedFiles.value.length,
+				language: language.value,
+				prompt: prompt.value
+			});
+
+			updateProgress('Starting queue processing...', 0);
+			
+			// Extract file paths from selected files
+			const filePaths = selectedFiles.value.map((file: any) => file.path);
+			
+			// Prepare titles for single vs multiple files
+			let titles: string[] | undefined = undefined;
+			if (selectedFiles.value.length === 1 && title.value.trim()) {
+				// Use custom title for single file
+				titles = [title.value];
+			}
+			
+			const results = await window.electronAPI.processFileQueue({
+				filePaths: filePaths,
+				titles: titles,
+				transcriptionService: savedTranscriptionService,
+				aiService: savedGenerationService,
+				prompt: prompt.value,
+				language: language.value
+			});
+			
+			console.log('✅ Queue processing completed');
+			const successCount = results.filter(r => r.success).length;
+			const failCount = results.filter(r => !r.success).length;
+			
+			updateProgress(`Queue complete! Processed: ${successCount}, Failed: ${failCount}`, 100);
+			
+			// Show summary
+			if (failCount > 0) {
+				error.value = `Processed ${successCount} files successfully, ${failCount} files failed. Check console for details.`;
+				console.error('Failed files:', results.filter(r => !r.success));
+			}
+		   
+			// Clear progress and navigate after a short delay
+			setTimeout(() => {
+				clearProgress();
+				router.push('/generations');
+			}, 2000);
+        } else {
+			error.value = 'No media file(s) selected';
+			isGenerating.value = false;
+			clearProgress();
+			return;
+        }
+       
         
       } catch (err) {
         console.error('❌ Error during generation:', err);
@@ -388,19 +398,28 @@ export default defineComponent({
       try {
         const selected = await window.electronAPI.openVideoDialog();
         
-        if (selected) {
-          videoPath.value = selected;
-          const parts = selected.split(/[\/\\]/);
-          const filename = parts[parts.length - 1];
-          selectedFile.value = { name: filename } as any;
+        if (selected && selected.length > 0) {
+          // Store file paths and create display objects
+          selectedFiles.value = selected.map(filePath => {
+            const parts = filePath.split(/[\/\\]/);
+            const filename = parts[parts.length - 1];
+            return { name: filename, path: filePath } as any;
+          });
           
-          // Auto-generate title from filename
-          const nameWithoutExt = filename.split('.').slice(0, -1).join('.');
-          title.value = nameWithoutExt;
+          // Set title based on number of files
+          if (selected.length === 1) {
+            // Single file: auto-generate title from filename
+            const fileName = selected[0].split(/[\/\\]/).pop() || '';
+            const nameWithoutExt = fileName.split('.').slice(0, -1).join('.');
+            title.value = nameWithoutExt;
+          } else {
+            // Multiple files: indicate count
+            title.value = `${selected.length} files selected`;
+          }
         }
       } catch (err) {
-        console.error('Error selecting file:', err);
-        error.value = `Error selecting file: ${err}`;
+        console.error('Error selecting files:', err);
+        error.value = `Error selecting files: ${err}`;
       }
     };
 
@@ -436,10 +455,11 @@ export default defineComponent({
     };
 
     return {
-      selectedFile,
+      selectedFiles,
       title,
       language,
       prompt,
+	  removeFile,
       isGenerating,
       generationProgress,
       canGenerate,

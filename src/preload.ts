@@ -19,11 +19,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
 	// File operations
 	openVideoDialog: () => ipcRenderer.invoke('dialog:openVideo'),
-	selectVideoFile: () => ipcRenderer.invoke('select-video-file'),
 
 	// Video processing
-	transcribeVideo: (params: any) => ipcRenderer.invoke('transcribe-video', params),
 	extractAudio: (videoPath: string) => ipcRenderer.invoke('extract-audio', videoPath),
+	processFileQueue: (params: any) => ipcRenderer.invoke('process-file-queue', params),
 
 	// Results management
 	saveResult: (data: any) => ipcRenderer.invoke('save-result', data),
