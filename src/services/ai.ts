@@ -32,6 +32,39 @@ const LANGUAGE_NAMES: Record<string, string> = {
 }
 
 /**
+ * Calculate optimal max_tokens based on input length
+ *
+ * @param systemPrompt - The system prompt text
+ * @param userPrompt - The user prompt text (including transcription)
+ * @returns Optimal max_tokens value
+ */
+function calculateMaxTokens(systemPrompt: string, userPrompt: string): number {
+	// Conservative token estimation: ~4 characters per token for most languages
+	const CHARS_PER_TOKEN = 4
+	const MAX_TOTAL_TOKENS = 128000 // Model context window
+	const MAX_OUTPUT_TOKENS = 16384 // API limit for max_tokens parameter
+	const MIN_OUTPUT_TOKENS = 1000 // Ensure minimum reasonable output
+
+	// Estimate input tokens from character count
+	const totalInputChars = systemPrompt.length + userPrompt.length
+	const estimatedInputTokens = Math.ceil(totalInputChars / CHARS_PER_TOKEN)
+
+	// Calculate available tokens for output
+	const availableOutputTokens = MAX_TOTAL_TOKENS - estimatedInputTokens
+
+	// Apply constraints: minimum, maximum, and available tokens
+	const maxTokens = Math.min(MAX_OUTPUT_TOKENS, Math.max(MIN_OUTPUT_TOKENS, availableOutputTokens))
+
+	console.log(`📊 Token calculation:`)
+	console.log(`   Input chars: ${totalInputChars.toLocaleString()}`)
+	console.log(`   Estimated input tokens: ${estimatedInputTokens.toLocaleString()}`)
+	console.log(`   Available output tokens: ${availableOutputTokens.toLocaleString()}`)
+	console.log(`   Final max_tokens: ${maxTokens.toLocaleString()}`)
+
+	return maxTokens
+}
+
+/**
  * Enhance system prompt with language-specific instructions
  */
 function enhanceSystemPromptWithLanguage(systemPrompt: string, languageCode: string): string {
@@ -100,6 +133,9 @@ async function generateWithOpenAI(request: GenerationRequest, config: AIConfig):
 	// Enhance system prompt with language instructions
 	const enhancedSystemPrompt = enhanceSystemPromptWithLanguage(request.systemPrompt, request.language)
 
+	// Calculate optimal max_tokens based on input length
+	const maxTokens = calculateMaxTokens(enhancedSystemPrompt, prompt)
+
 	const requestData = {
 		model: model,
 		messages: [
@@ -113,7 +149,7 @@ async function generateWithOpenAI(request: GenerationRequest, config: AIConfig):
 			}
 		],
 		temperature: temperature,
-		max_tokens: 4000
+		max_tokens: maxTokens
 	}
 
 	try {
@@ -152,6 +188,9 @@ async function generateWithCustomAPI(request: GenerationRequest, config: AIConfi
 	// Enhance system prompt with language instructions
 	const enhancedSystemPrompt = enhanceSystemPromptWithLanguage(request.systemPrompt, request.language)
 
+	// Calculate optimal max_tokens based on input length
+	const maxTokens = calculateMaxTokens(enhancedSystemPrompt, prompt)
+
 	const requestData = {
 		model: model,
 		messages: [
@@ -165,7 +204,7 @@ async function generateWithCustomAPI(request: GenerationRequest, config: AIConfi
 			}
 		],
 		temperature: temperature,
-		max_tokens: 4000
+		max_tokens: maxTokens
 	}
 
 	const headers: any = {
