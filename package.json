@@ -19,7 +19,9 @@
 	"scripts": {
 		"dev": "electron-forge start",
 		"make": "electron-forge make",
-		"make:macos": "electron-forge make --platform=darwin",
+		"make:macos-arm64": "electron-forge make --platform=darwin --arch=arm64",
+		"make:macos-x64": "electron-forge make --platform=darwin --arch=x64",
+		"make:macos": "npm run make:macos-arm64 && npm run make:macos-x64",
 		"make:windows": "electron-forge make --platform=win32 --arch=x64",
 		"make:linux": "electron-forge make --platform=linux --arch=x64",
 		"make:all": "npm run make:macos && npm run make:windows && npm run make:linux",

@@ -7,7 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+-   **Comprehensive CHANGELOG.md**: Created structured changelog following Keep a Changelog format with automatic release integration
+-   **Dual macOS Architecture Support**: Added separate build commands for both Apple Silicon (ARM64) and Intel (x64) architectures
+-   **Automated Release Process**: Implemented unified release script with semantic versioning for major, minor, and patch releases
+
+### Changed
+
+-   **Simplified Build Commands**: Streamlined package.json scripts by removing redundant build commands and keeping only essential make commands
+-   **Enhanced Release Workflow**: Integrated changelog content directly into GitHub release notes for more informative releases
+-   **macOS Build Process**: Updated to build both ARM64 and x64 versions automatically for complete macOS compatibility
+
+### Removed
+
+-   **Outdated Build Scripts**: Removed `build-all-platforms.js`, `tag-release.js`, and `create-release-manual.js` in favor of unified release process
+-   **Redundant Commands**: Eliminated `build:*` commands that only packaged without creating distributable installers
+
+### Technical Improvements
+
+-   **Release Automation**: Single-command release process that handles version bumping, changelog updates, git tagging, building, and GitHub release creation
+-   **Better Architecture Coverage**: Ensures all promised download options (macOS ARM64, macOS Intel, Windows, Linux) are actually built and distributed
+
 ## [0.7.0] - 2025-06-11
+
 ### Added
 
 -   **External Whisper Service**: Implemented Whisper transcription external service with FastAPI, Docker support, and example configuration for local deployment
