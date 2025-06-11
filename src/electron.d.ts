@@ -97,6 +97,17 @@ interface ElectronAPI {
 		error?: string
 	}>
 
+	bulkGenerateContent: (params: {
+		systemPrompt: string
+		userPrompt: string
+		title: string
+		sourceIds: number[]
+	}) => Promise<{
+		success: boolean
+		id?: number
+		error?: string
+	}>
+
 	// API Config
 	saveApiConfig: (config: {
 		api_type: string

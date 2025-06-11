@@ -58,6 +58,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 	getResults: () => ipcRenderer.invoke('get-results'),
 	deleteResult: (id: string) => ipcRenderer.invoke('delete-result', id),
 	regenerateIndex: (params: any) => ipcRenderer.invoke('regenerate-index', params),
+	bulkGenerateContent: (params: any) => ipcRenderer.invoke('bulk-generate-content', params),
 
 	// System info
 	getUserDataPath: () => ipcRenderer.invoke('get-user-data-path'),

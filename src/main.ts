@@ -500,6 +500,79 @@ ipcMain.handle('delete-result', async (_, id) => {
 	}
 })
 
+// Bulk generation handler
+ipcMain.handle('bulk-generate-content', async (_, { systemPrompt, userPrompt, title, sourceIds }) => {
+	try {
+		console.log('🔄 Starting bulk content generation process')
+		console.log('📋 Parameters:', {
+			title,
+			sourceCount: sourceIds.length,
+			userPromptLength: userPrompt.length,
+			systemPromptLength: systemPrompt.length
+		})
+
+		// Get generation service config
+		const generationService = await db.getSetting('generationService', 'openai')
+		if (!generationService) {
+			throw new Error('Failed to get generation service setting')
+		}
+		console.log('⚙️ Getting AI service config for:', generationService)
+		const aiConfig = await db.getApiConfig(generationService)
+		console.log('📋 AI config loaded (API key hidden):', {
+			...aiConfig,
+			apiKey: aiConfig.apiKey ? '[HIDDEN]' : '[MISSING]'
+		})
+
+		// Get user's default language setting
+		const defaultLanguage = (await db.getSetting('defaultLanguage', 'en')) || 'en'
+		console.log('🌐 Using user default language:', defaultLanguage)
+
+		// Remove {transcription} placeholder from user prompt since we're not using transcriptions in bulk generation
+		const cleanedUserPrompt = userPrompt.replace(/\{transcription\}/gi, '').trim()
+		console.log('🔧 Cleaned user prompt (removed {transcription} placeholder)')
+
+		// Generate the new content using bulk generation
+		console.log('🤖 Starting bulk content generation...')
+		const result = await aiService.generateIndex(
+			{
+				userPrompt: cleanedUserPrompt,
+				transcription: '', // No transcription needed for bulk generation
+				systemPrompt,
+				language: defaultLanguage
+			},
+			generationService,
+			aiConfig
+		)
+		console.log('✅ Bulk content generation completed, length:', result.index.length, 'characters')
+
+		// Save the bulk generation result
+		console.log('💾 Saving bulk generation result to database...')
+		const saveResult = await db.saveTranscriptionResult({
+			title,
+			source: `Bulk Generation from ${sourceIds.length} sources`,
+			language: defaultLanguage,
+			transcription: `Combined content from generation IDs: ${sourceIds.join(', ')}`,
+			index_content: result.index,
+			prompt: cleanedUserPrompt,
+			audio_path: '', // No audio path for bulk generation
+			date: new Date().toISOString(),
+			system_prompt: systemPrompt
+		})
+		console.log('✅ Bulk generation result saved with ID:', saveResult.id)
+
+		return {
+			success: true,
+			id: saveResult.id
+		}
+	} catch (error: any) {
+		console.error('❌ Error in bulk content generation process:', error)
+		return {
+			success: false,
+			error: error.message || 'Unknown error occurred'
+		}
+	}
+})
+
 // External URL handler
 ipcMain.handle('open-external-url', async (_, url) => {
 	try {

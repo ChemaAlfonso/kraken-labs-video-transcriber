@@ -13,17 +13,65 @@
     </div>
     
     <div v-else>
+      <!-- Bulk Actions Bar -->
+      <div v-if="selectedGenerationIds.length > 0" class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div class="flex items-center">
+            <span class="text-blue-800 font-medium">
+              {{ selectedGenerationIds.length }} generation(s) selected
+            </span>
+            <button 
+              @click="clearSelection"
+              class="ml-3 text-blue-600 hover:text-blue-800 text-sm underline"
+            >
+              Clear selection
+            </button>
+          </div>
+          
+          <div class="flex gap-2">
+            <button 
+              @click="showBulkGenerationModal"
+              class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
+            >
+              Bulk Generate
+            </button>
+            <button 
+              @click="showBulkRemoveConfirmation"
+              class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm"
+            >
+              Remove Selected
+            </button>
+          </div>
+        </div>
+      </div>
+      
       <div class="flex flex-col sm:flex-row justify-between gap-4 mb-4">
-        <div class="relative">
-          <input 
-            v-model="searchQuery"
-            type="text"
-            placeholder="Search generations..."
-            class="pl-10 pr-4 py-2 border rounded w-full sm:w-64"
-          />
-          <div class="absolute left-3 top-2.5 text-gray-400">
-            <!-- Search icon would go here -->
-            🔍
+        <div class="flex items-center gap-4">
+          <div class="relative">
+            <input 
+              v-model="searchQuery"
+              type="text"
+              placeholder="Search generations..."
+              class="pl-10 pr-4 py-2 border rounded w-full sm:w-64"
+            />
+            <div class="absolute left-3 top-2.5 text-gray-400">
+              🔍
+            </div>
+          </div>
+          
+          <!-- Select All Checkbox -->
+          <div class="flex items-center">
+            <input 
+              id="selectAll"
+              type="checkbox"
+              :checked="isAllSelected"
+              :indeterminate="isSomeSelected && !isAllSelected"
+              @change="toggleSelectAll"
+              class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+            />
+            <label for="selectAll" class="ml-2 text-sm text-gray-700">
+              Select all
+            </label>
           </div>
         </div>
         
@@ -44,6 +92,13 @@
             <div v-for="generation in filteredGenerations" :key="generation.id" class="p-4">
               <div class="flex items-start justify-between">
                 <div class="flex items-center flex-1 min-w-0">
+                  <!-- Selection checkbox -->
+                  <input 
+                    type="checkbox"
+                    :checked="selectedGenerationIds.includes(generation.id)"
+                    @change="toggleGeneration(generation.id)"
+                    class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 mr-3 mt-1"
+                  />
                   <div class="w-8 h-8 bg-gray-200 rounded flex-shrink-0 mr-3">
                     <!-- Video thumbnail would go here -->
                   </div>
@@ -102,6 +157,15 @@
           <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
               <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
+                  <input 
+                    type="checkbox"
+                    :checked="isAllSelected"
+                    :indeterminate="isSomeSelected && !isAllSelected"
+                    @change="toggleSelectAll"
+                    class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                </th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Video
                 </th>
@@ -118,6 +182,14 @@
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
               <tr v-for="generation in filteredGenerations" :key="generation.id" class="hover:bg-gray-50">
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <input 
+                    type="checkbox"
+                    :checked="selectedGenerationIds.includes(generation.id)"
+                    @change="toggleGeneration(generation.id)"
+                    class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                </td>
                 <td class="px-6 py-4">
                   <div class="flex items-center">
                     <div class="w-10 h-10 bg-gray-200 rounded flex-shrink-0 mr-3">
@@ -422,13 +494,203 @@
         </div>
       </div>
     </div>
+
+    <!-- Bulk Remove Confirmation Modal -->
+    <div v-if="showBulkRemoveModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div class="bg-white rounded-lg shadow-xl w-full max-w-md">
+        <div class="p-6 border-b">
+          <div class="flex justify-between items-center">
+            <h2 class="text-xl font-bold">Remove Selected Generations</h2>
+            <button @click="closeBulkRemoveModal" class="text-gray-500 hover:text-gray-700">
+              ✕
+            </button>
+          </div>
+        </div>
+        
+        <div class="p-6">
+          <div class="flex items-start mb-4">
+            <div class="flex-shrink-0">
+              <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+            </div>
+            <div class="ml-3">
+              <h3 class="text-lg font-medium text-gray-900">Confirm Bulk Removal</h3>
+              <p class="mt-2 text-sm text-gray-600">
+                You are about to permanently delete <strong>{{ selectedGenerationIds.length }}</strong> generation(s). 
+                This action cannot be undone.
+              </p>
+            </div>
+          </div>
+          
+          <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+            <p class="text-sm text-red-800">
+              <strong>Warning:</strong> All selected generations and their associated data will be permanently removed.
+            </p>
+          </div>
+        </div>
+        
+        <div class="p-6 border-t bg-gray-50 flex justify-end gap-3">
+          <button 
+            @click="closeBulkRemoveModal"
+            class="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+          <button 
+            @click="bulkRemoveGenerations"
+            :disabled="isBulkRemoving"
+            class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <span v-if="isBulkRemoving">Removing...</span>
+            <span v-else>Remove {{ selectedGenerationIds.length }} Generation(s)</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bulk Generation Modal -->
+    <div v-if="showBulkGenModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+        <div class="p-6 border-b">
+          <div class="flex justify-between items-center">
+            <h2 class="text-xl font-bold">Bulk Generate Content</h2>
+            <button @click="closeBulkGenerationModal" class="text-gray-500 hover:text-gray-700">
+              ✕
+            </button>
+          </div>
+        </div>
+        
+        <div class="flex-1 overflow-auto p-6">
+          <div class="mb-6">
+            <p class="text-sm text-gray-600 mb-4">
+              Generate new content by combining {{ selectedGenerationIds.length }} selected generation(s). 
+              Choose your prompts and create a unified output.
+            </p>
+            
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+              <p class="text-sm text-blue-800">
+                <strong>How it works:</strong> The AI will receive all selected content as context, 
+                followed by your user prompt. Perfect for creating summaries, tables of contents, or unified analyses.
+              </p>
+            </div>
+          </div>
+          
+          <!-- System Prompt Selection -->
+          <div class="mb-6">
+            <label class="block text-sm font-medium text-gray-700 mb-2">System Prompt</label>
+            <select 
+              v-model="bulkGenerationSystemPromptId"
+              class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              required
+            >
+              <option value="">Select a system prompt...</option>
+              <option 
+                v-for="prompt in systemPrompts" 
+                :key="prompt.id" 
+                :value="prompt.id"
+              >
+                {{ prompt.name }}
+              </option>
+            </select>
+            
+            <!-- Show selected system prompt content -->
+            <div v-if="selectedBulkSystemPrompt" class="mt-3 p-3 bg-gray-50 border rounded text-sm">
+              <strong>Selected system prompt:</strong>
+              <div class="mt-2 text-gray-700">{{ selectedBulkSystemPrompt.content.substring(0, 200) }}{{ selectedBulkSystemPrompt.content.length > 200 ? '...' : '' }}</div>
+            </div>
+          </div>
+          
+          <!-- User Prompt Selection -->
+          <div class="mb-6">
+            <label class="block text-sm font-medium text-gray-700 mb-2">User Prompt</label>
+            <select 
+              v-model="bulkGenerationUserPromptId"
+              class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              required
+            >
+              <option value="">Select a user prompt...</option>
+              <option 
+                v-for="prompt in userPrompts" 
+                :key="prompt.id" 
+                :value="prompt.id"
+              >
+                {{ prompt.name }}
+              </option>
+            </select>
+            
+            <!-- Show selected user prompt content -->
+            <div v-if="selectedBulkUserPrompt" class="mt-3 p-3 bg-gray-50 border rounded text-sm">
+              <strong>Selected user prompt:</strong>
+              <div class="mt-2 text-gray-700">{{ selectedBulkUserPrompt.content.substring(0, 200) }}{{ selectedBulkUserPrompt.content.length > 200 ? '...' : '' }}</div>
+            </div>
+            
+            <!-- Warning about transcription placeholder -->
+            <div class="mt-3 p-3 bg-amber-50 border border-amber-200 rounded text-sm">
+              <div class="flex items-start">
+                <svg class="w-4 h-4 text-amber-600 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+                <div>
+                  <div class="font-medium text-amber-800">Note about {transcription} placeholder</div>
+                  <div class="text-amber-700 mt-1">
+                    The <code class="bg-amber-100 px-1 rounded text-xs">{transcription}</code> placeholder will be automatically removed in bulk generation since we're working with generated content, not transcriptions.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Generation Title -->
+          <div class="mb-6">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Generated Content Title</label>
+            <input 
+              v-model="bulkGenerationTitle"
+              type="text"
+              placeholder="Enter a title for the generated content..."
+              class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              required
+            />
+          </div>
+          
+          <!-- Selected generations preview -->
+          <div class="mb-6">
+            <h3 class="text-sm font-medium text-gray-700 mb-2">Selected Generations ({{ selectedGenerationIds.length }})</h3>
+            <div class="max-h-40 overflow-y-auto border border-gray-200 rounded">
+              <div v-for="generation in selectedGenerationsForBulk" :key="generation.id" class="p-3 border-b border-gray-100 last:border-b-0">
+                <div class="text-sm font-medium text-gray-900">{{ generation.title }}</div>
+                <div class="text-xs text-gray-500">{{ formatDate(generation.date) }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="p-6 border-t bg-gray-50 flex justify-end gap-3">
+          <button 
+            @click="closeBulkGenerationModal"
+            class="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+          <button 
+            @click="executeBulkGeneration"
+            :disabled="isBulkGenerating || !bulkGenerationSystemPromptId || !bulkGenerationUserPromptId || !bulkGenerationTitle.trim()"
+            class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <span v-if="isBulkGenerating">Generating...</span>
+            <span v-else>Generate Content</span>
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, computed, onMounted, onUnmounted } from 'vue';
+import { defineComponent, ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { marked } from 'marked';
+import { usePrompts, type SystemPrompt, type UserPrompt } from '../composables/usePrompts';
 
 interface Generation {
   id: number;
@@ -447,6 +709,8 @@ export default defineComponent({
   name: 'Generations',
   setup() {
     const router = useRouter();
+    const { systemPrompts, userPrompts, loadPrompts } = usePrompts();
+    
     const searchQuery = ref('');
     const sortBy = ref('date-desc');
     const generations = ref<Generation[]>([]);
@@ -466,13 +730,45 @@ export default defineComponent({
     const useOriginalPrompt = ref(true);
     const useOriginalSystemPrompt = ref(true);
     
-    // Store system prompt details for display
-
+    // Bulk actions state
+    const selectedGenerationIds = ref<number[]>([]);
+    const showBulkRemoveModal = ref(false);
+    const isBulkRemoving = ref(false);
+    const showBulkGenModal = ref(false);
+    const isBulkGenerating = ref(false);
+    const bulkGenerationSystemPromptId = ref<number | null>(null);
+    const bulkGenerationUserPromptId = ref<number | null>(null);
+    const bulkGenerationTitle = ref('');
     
     // Configure marked for better rendering
     marked.setOptions({
       breaks: true,
       gfm: true
+    });
+
+    // Computed properties for bulk actions
+    const isAllSelected = computed(() => {
+      return filteredGenerations.value.length > 0 && 
+             selectedGenerationIds.value.length === filteredGenerations.value.length &&
+             filteredGenerations.value.every(gen => selectedGenerationIds.value.includes(gen.id));
+    });
+
+    const isSomeSelected = computed(() => {
+      return selectedGenerationIds.value.length > 0;
+    });
+
+    const selectedGenerationsForBulk = computed(() => {
+      return generations.value.filter(gen => selectedGenerationIds.value.includes(gen.id));
+    });
+
+    const selectedBulkSystemPrompt = computed(() => {
+      if (!bulkGenerationSystemPromptId.value) return null;
+      return systemPrompts.value.find((p: SystemPrompt) => p.id === bulkGenerationSystemPromptId.value) || null;
+    });
+
+    const selectedBulkUserPrompt = computed(() => {
+      if (!bulkGenerationUserPromptId.value) return null;
+      return userPrompts.value.find((p: UserPrompt) => p.id === bulkGenerationUserPromptId.value) || null;
     });
 
     // Computed property to render markdown
@@ -498,17 +794,24 @@ export default defineComponent({
     onMounted(async () => {
       try {
         isLoading.value = true;
-        generations.value = await window.electronAPI.getResults();
+        await Promise.all([
+          loadPrompts(),
+          loadGenerations()
+        ]);
         
         // Add click outside listener for mobile menu
         document.addEventListener('click', closeMobileMenu);
       } catch (err) {
-        console.error('Failed to load generations:', err);
-        error.value = `Failed to load generations: ${err}`;
+        console.error('Failed to load data:', err);
+        error.value = `Failed to load data: ${err}`;
       } finally {
         isLoading.value = false;
       }
     });
+
+    const loadGenerations = async () => {
+      generations.value = await window.electronAPI.getResults();
+    };
     
     const filteredGenerations = computed(() => {
       let result = [...generations.value];
@@ -534,6 +837,138 @@ export default defineComponent({
           return result;
       }
     });
+
+    // Watch for search query changes to clear selection when filtering
+    watch(searchQuery, () => {
+      // Clear selection when search changes to avoid confusion with filtered results
+      clearSelection();
+    });
+
+    // Bulk actions methods
+    const toggleGeneration = (id: number) => {
+      const index = selectedGenerationIds.value.indexOf(id);
+      if (index > -1) {
+        selectedGenerationIds.value.splice(index, 1);
+      } else {
+        selectedGenerationIds.value.push(id);
+      }
+    };
+
+    const toggleSelectAll = () => {
+      if (isAllSelected.value) {
+        selectedGenerationIds.value = [];
+      } else {
+        selectedGenerationIds.value = filteredGenerations.value.map(gen => gen.id);
+      }
+    };
+
+    const clearSelection = () => {
+      selectedGenerationIds.value = [];
+    };
+
+    const showBulkRemoveConfirmation = () => {
+      showBulkRemoveModal.value = true;
+    };
+
+    const closeBulkRemoveModal = () => {
+      showBulkRemoveModal.value = false;
+    };
+
+    const bulkRemoveGenerations = async () => {
+      try {
+        isBulkRemoving.value = true;
+        
+        // Remove each generation
+        for (const id of selectedGenerationIds.value) {
+          await window.electronAPI.deleteResult(id);
+        }
+        
+        // Update local state
+        generations.value = generations.value.filter(g => !selectedGenerationIds.value.includes(g.id));
+        
+        // Clear selection
+        clearSelection();
+        closeBulkRemoveModal();
+        
+      } catch (err) {
+        console.error('Failed to remove generations:', err);
+        alert(`Failed to remove generations: ${err}`);
+      } finally {
+        isBulkRemoving.value = false;
+      }
+    };
+
+    const showBulkGenerationModal = () => {
+      showBulkGenModal.value = true;
+      bulkGenerationTitle.value = `Combined Content - ${new Date().toLocaleDateString()}`;
+    };
+
+    const closeBulkGenerationModal = () => {
+      showBulkGenModal.value = false;
+      bulkGenerationSystemPromptId.value = null;
+      bulkGenerationUserPromptId.value = null;
+      bulkGenerationTitle.value = '';
+    };
+
+    const executeBulkGeneration = async () => {
+      if (!bulkGenerationSystemPromptId.value || !bulkGenerationUserPromptId.value || !bulkGenerationTitle.value.trim()) {
+        return;
+      }
+
+      try {
+        isBulkGenerating.value = true;
+
+        const selectedGens = selectedGenerationsForBulk.value;
+        const systemPrompt = selectedBulkSystemPrompt.value;
+        const userPrompt = selectedBulkUserPrompt.value;
+
+        if (!systemPrompt || !userPrompt) {
+          alert('Please select both system and user prompts');
+          return;
+        }
+
+        // Prepare the combined content - ensure we only use serializable data
+        const combinedContent = selectedGens.map(gen => 
+          `# ${String(gen.title || '')}\n\n${String(gen.index || '')}`
+        ).join('\n\n---\n\n');
+
+        // Prepare the final user prompt with prepended content
+        const finalUserPrompt = `Based on the following pieces of content:
+
+${combinedContent}
+
+${String(userPrompt.content || '')}`;
+
+        // Call the bulk generation API - ensure all values are serializable
+        const result = await window.electronAPI.bulkGenerateContent({
+          systemPrompt: String(systemPrompt.content || ''),
+          userPrompt: String(finalUserPrompt),
+          title: String(bulkGenerationTitle.value || ''),
+          sourceIds: [...selectedGenerationIds.value] // Create a new array to avoid reference issues
+        });
+
+
+        if (!result.success) {
+          alert(result.error || 'Failed to generate content');
+          return;
+        }
+
+        // Reload generations to include the new one
+        await loadGenerations();
+        
+        // Clear selection and close modal
+        clearSelection();
+        closeBulkGenerationModal();
+
+        alert('Bulk generation completed successfully!');
+        
+      } catch (err) {
+        console.error('Failed to execute bulk generation:', err);
+        alert(`Failed to execute bulk generation: ${err}`);
+      } finally {
+        isBulkGenerating.value = false;
+      }
+    };
     
     const formatDate = (dateStr: string) => {
       const date = new Date(dateStr);
@@ -649,6 +1084,12 @@ export default defineComponent({
           
           // Remove from local state
           generations.value = generations.value.filter(g => g.id !== id);
+          
+          // Remove from selection if selected
+          const selectionIndex = selectedGenerationIds.value.indexOf(id);
+          if (selectionIndex > -1) {
+            selectedGenerationIds.value.splice(selectionIndex, 1);
+          }
           
           if (selectedGeneration.value?.id === id) {
             closeModal();
@@ -820,7 +1261,33 @@ export default defineComponent({
       closeRegenerateModal,
       regenerateIndex,
       useOriginalPrompt,
-      useOriginalSystemPrompt
+      useOriginalSystemPrompt,
+      
+      // Bulk actions
+      selectedGenerationIds,
+      isAllSelected,
+      isSomeSelected,
+      toggleGeneration,
+      toggleSelectAll,
+      clearSelection,
+      showBulkRemoveModal,
+      isBulkRemoving,
+      showBulkRemoveConfirmation,
+      closeBulkRemoveModal,
+      bulkRemoveGenerations,
+      showBulkGenModal,
+      isBulkGenerating,
+      showBulkGenerationModal,
+      closeBulkGenerationModal,
+      executeBulkGeneration,
+      bulkGenerationSystemPromptId,
+      bulkGenerationUserPromptId,
+      bulkGenerationTitle,
+      selectedGenerationsForBulk,
+      selectedBulkSystemPrompt,
+      selectedBulkUserPrompt,
+      systemPrompts,
+      userPrompts
     };
   }
 });
