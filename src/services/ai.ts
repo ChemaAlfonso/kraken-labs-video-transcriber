@@ -19,6 +19,30 @@ interface GenerationResult {
 }
 
 /**
+ * Language code to language name mapping
+ */
+const LANGUAGE_NAMES: Record<string, string> = {
+	es: 'Spanish',
+	en: 'English',
+	fr: 'French',
+	de: 'German',
+	it: 'Italian',
+	pt: 'Portuguese',
+	auto: 'the same language as the transcription'
+}
+
+/**
+ * Enhance system prompt with language-specific instructions
+ */
+function enhanceSystemPromptWithLanguage(systemPrompt: string, languageCode: string): string {
+	const languageName = LANGUAGE_NAMES[languageCode] || languageCode
+	const languageInstruction = `\n\nIMPORTANT: Always respond in ${languageName}, regardless of the input language.`
+
+	console.log(`🌐 Enhanced system prompt with language instruction: ${languageName}`)
+	return systemPrompt + languageInstruction
+}
+
+/**
  * Generate content using AI service
  */
 export async function generateIndex(
@@ -73,12 +97,15 @@ async function generateWithOpenAI(request: GenerationRequest, config: AIConfig):
 
 	const prompt = request.userPrompt.replace('{transcription}', request.transcription)
 
+	// Enhance system prompt with language instructions
+	const enhancedSystemPrompt = enhanceSystemPromptWithLanguage(request.systemPrompt, request.language)
+
 	const requestData = {
 		model: model,
 		messages: [
 			{
 				role: 'system',
-				content: request.systemPrompt
+				content: enhancedSystemPrompt
 			},
 			{
 				role: 'user',
@@ -122,12 +149,15 @@ async function generateWithCustomAPI(request: GenerationRequest, config: AIConfi
 
 	const prompt = request.userPrompt.replace('{transcription}', request.transcription)
 
+	// Enhance system prompt with language instructions
+	const enhancedSystemPrompt = enhanceSystemPromptWithLanguage(request.systemPrompt, request.language)
+
 	const requestData = {
 		model: model,
 		messages: [
 			{
 				role: 'system',
-				content: request.systemPrompt
+				content: enhancedSystemPrompt
 			},
 			{
 				role: 'user',

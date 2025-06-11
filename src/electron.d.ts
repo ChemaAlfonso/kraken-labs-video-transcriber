@@ -1,3 +1,19 @@
+interface SystemPrompt {
+	id?: number
+	name: string
+	content: string
+	is_default: boolean
+	created_at: string
+}
+
+interface UserPrompt {
+	id?: number
+	name: string
+	content: string
+	is_default: boolean
+	created_at: string
+}
+
 interface ElectronAPI {
 	// File dialogs
 	openVideoDialog: () => Promise<string[] | null>
@@ -104,10 +120,43 @@ interface ElectronAPI {
 	// Settings
 	getDefaultLanguage: () => Promise<string>
 	setDefaultLanguage: (language: string) => Promise<{ success: boolean }>
+
+	// Legacy prompts (for backward compatibility)
 	getSystemPrompt: () => Promise<string>
 	setSystemPrompt: (prompt: string) => Promise<{ success: boolean }>
 	getUserPrompt: () => Promise<string>
 	setUserPrompt: (prompt: string) => Promise<{ success: boolean }>
+
+	// Multiple System Prompts
+	getSystemPrompts: () => Promise<SystemPrompt[]>
+	saveSystemPrompt: (prompt: {
+		name: string
+		content: string
+		is_default: boolean
+	}) => Promise<{ success: boolean; prompt: SystemPrompt }>
+	updateSystemPrompt: (
+		id: number,
+		updates: Partial<{ name: string; content: string; is_default: boolean }>
+	) => Promise<{ success: boolean }>
+	deleteSystemPrompt: (id: number) => Promise<{ success: boolean }>
+	setSelectedSystemPrompt: (id: number) => Promise<{ success: boolean }>
+	getSelectedSystemPromptId: () => Promise<number | null>
+
+	// Multiple User Prompts
+	getUserPrompts: () => Promise<UserPrompt[]>
+	saveUserPrompt: (prompt: {
+		name: string
+		content: string
+		is_default: boolean
+	}) => Promise<{ success: boolean; prompt: UserPrompt }>
+	updateUserPrompt: (
+		id: number,
+		updates: Partial<{ name: string; content: string; is_default: boolean }>
+	) => Promise<{ success: boolean }>
+	deleteUserPrompt: (id: number) => Promise<{ success: boolean }>
+	setSelectedUserPrompt: (id: number) => Promise<{ success: boolean }>
+	getSelectedUserPromptId: () => Promise<number | null>
+
 	getTranscriptionService: () => Promise<string>
 	setTranscriptionService: (service: string) => Promise<{ success: boolean }>
 	getGenerationService: () => Promise<string>

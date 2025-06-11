@@ -193,10 +193,18 @@
             </div>
           </div>
           
+          <div class="mb-6">
+            <h3 class="text-lg font-semibold mb-2">System Prompt Used</h3>
+            <div class="bg-gray-50 p-4 rounded border markdown-content">
+              <div v-if="selectedGenerationSystemPrompt" v-html="selectedGenerationSystemPrompt"></div>
+              <div v-else class="text-gray-500 italic">System prompt not available</div>
+            </div>
+          </div>
+          
           <div>
-            <h3 class="text-lg font-semibold mb-2">Prompt Used</h3>
-            <div class="bg-gray-50 p-4 rounded border">
-              <p class="text-sm">{{ selectedGeneration.prompt }}</p>
+            <h3 class="text-lg font-semibold mb-2">User Prompt Used</h3>
+            <div class="bg-gray-50 p-4 rounded border markdown-content">
+              <div v-html="selectedGenerationUserPrompt"></div>
             </div>
           </div>
         </div>
@@ -328,13 +336,45 @@
           
           <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
             <p class="text-sm text-yellow-800">
-              <strong>Note:</strong> Choose whether to use the original prompt (to maintain formatting consistency) 
+              <strong>Note:</strong> Choose whether to use the original prompts (to maintain formatting consistency) 
               or your current prompt settings (which may produce different formatting).
             </p>
           </div>
           
+          <!-- System Prompt Options -->
           <div class="border border-gray-200 rounded-lg p-4 mb-4">
-            <h4 class="font-medium text-gray-900 mb-2">Prompt Options:</h4>
+            <h4 class="font-medium text-gray-900 mb-2">System Prompt Options:</h4>
+            <div class="space-y-2">
+              <label class="flex items-start">
+                <input 
+                  type="radio" 
+                  v-model="useOriginalSystemPrompt" 
+                  :value="true" 
+                  class="mt-1 mr-2"
+                />
+                <div>
+                  <div class="text-sm font-medium text-gray-900">Use original system prompt</div>
+                  <div class="text-xs text-gray-600">Keep the same system instructions as the original generation</div>
+                </div>
+              </label>
+              <label class="flex items-start">
+                <input 
+                  type="radio" 
+                  v-model="useOriginalSystemPrompt" 
+                  :value="false" 
+                  class="mt-1 mr-2"
+                />
+                <div>
+                  <div class="text-sm font-medium text-gray-900">Use current selected system prompt</div>
+                  <div class="text-xs text-gray-600">Apply your currently selected system prompt</div>
+                </div>
+              </label>
+            </div>
+          </div>
+          
+          <!-- User Prompt Options -->
+          <div class="border border-gray-200 rounded-lg p-4 mb-4">
+            <h4 class="font-medium text-gray-900 mb-2">User Prompt Options:</h4>
             <div class="space-y-2">
               <label class="flex items-start">
                 <input 
@@ -344,8 +384,8 @@
                   class="mt-1 mr-2"
                 />
                 <div>
-                  <div class="text-sm font-medium text-gray-900">Use original prompt</div>
-                  <div class="text-xs text-gray-600">Keep the same formatting as the original generation</div>
+                  <div class="text-sm font-medium text-gray-900">Use original user prompt</div>
+                  <div class="text-xs text-gray-600">Keep the same user instructions as the original generation</div>
                 </div>
               </label>
               <label class="flex items-start">
@@ -356,8 +396,8 @@
                   class="mt-1 mr-2"
                 />
                 <div>
-                  <div class="text-sm font-medium text-gray-900">Use current prompt</div>
-                  <div class="text-xs text-gray-600">Apply your current prompt settings (may change formatting)</div>
+                  <div class="text-sm font-medium text-gray-900">Use current selected user prompt</div>
+                  <div class="text-xs text-gray-600">Apply your currently selected user prompt</div>
                 </div>
               </label>
             </div>
@@ -400,6 +440,7 @@ interface Generation {
   transcription: string;
   prompt: string;
   audio_path: string;
+  system_prompt_id?: number;
 }
 
 export default defineComponent({
@@ -423,6 +464,10 @@ export default defineComponent({
     const regenerateGenerationId = ref<number | null>(null);
     const isRegenerating = ref(false);
     const useOriginalPrompt = ref(true);
+    const useOriginalSystemPrompt = ref(true);
+    
+    // Store system prompt details for display
+
     
     // Configure marked for better rendering
     marked.setOptions({
@@ -434,6 +479,19 @@ export default defineComponent({
     const renderedIndex = computed(() => {
       if (!selectedGeneration.value?.index) return '';
       return marked(selectedGeneration.value.index);
+    });
+
+    // Computed property to render system prompt
+    const selectedGenerationSystemPrompt = computed(() => {
+      const generation = selectedGeneration.value as any;
+      if (!generation?.system_prompt) return '';
+      return marked(generation.system_prompt);
+    });
+
+    // Computed property to render user prompt
+    const selectedGenerationUserPrompt = computed(() => {
+      if (!selectedGeneration.value?.prompt) return '';
+      return marked(selectedGeneration.value.prompt);
     });
     
     // Load generations on component mount
@@ -486,10 +544,11 @@ export default defineComponent({
       router.push('/');
     };
     
-    const viewGenerationDetail = (id: number) => {
+    const viewGenerationDetail = async (id: number) => {
       const generation = generations.value.find(g => g.id === id);
       if (generation) {
         selectedGeneration.value = generation;
+        // System prompt content is now stored directly in the generation, no need to load separately
       }
     };
     
@@ -619,8 +678,8 @@ export default defineComponent({
     };
 
     // Handle mobile menu actions
-    const handleMobileView = (id: number) => {
-      viewGenerationDetail(id);
+    const handleMobileView = async (id: number) => {
+      await viewGenerationDetail(id);
       closeMobileMenu();
     };
 
@@ -655,20 +714,30 @@ export default defineComponent({
         const generation = generations.value.find(g => g.id === regenerateGenerationId.value);
         if (!generation) return;
         
-        // Get the prompt to use based on user selection
-        let promptToUse;
+        // Get the user prompt to use based on user selection
+        let userPromptToUse;
         if (useOriginalPrompt.value) {
-          promptToUse = generation.prompt;
+          userPromptToUse = generation.prompt;
         } else {
-          promptToUse = await window.electronAPI.getUserPrompt();
+          userPromptToUse = await window.electronAPI.getUserPrompt();
+        }
+        
+        // Get the system prompt content to use based on user selection
+        let systemPromptToUse;
+        if (useOriginalSystemPrompt.value) {
+          // Use the original system prompt if available, fallback to current if not
+          systemPromptToUse = (generation as any).system_prompt || await window.electronAPI.getSystemPrompt();
+        } else {
+          systemPromptToUse = await window.electronAPI.getSystemPrompt();
         }
         
         // Call the dedicated regenerate index method
-        const result = await window.electronAPI.regenerateIndex({
+        const result = await (window.electronAPI.regenerateIndex as any)({
           id: generation.id,
           transcription: generation.transcription,
           language: generation.language,
-          prompt: promptToUse
+          userPrompt: userPromptToUse,
+          systemPrompt: systemPromptToUse
         });
         
         // Check if the operation was successful
@@ -735,6 +804,8 @@ export default defineComponent({
       deleteGeneration,
       renderedIndex,
       renderedTranscription,
+      selectedGenerationSystemPrompt,
+      selectedGenerationUserPrompt,
       includeTranscription,
       mobileMenuOpen,
       toggleMobileMenu,
@@ -748,7 +819,8 @@ export default defineComponent({
       showRegenerateConfirmation,
       closeRegenerateModal,
       regenerateIndex,
-      useOriginalPrompt
+      useOriginalPrompt,
+      useOriginalSystemPrompt
     };
   }
 });

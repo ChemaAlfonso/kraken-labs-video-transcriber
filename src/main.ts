@@ -147,7 +147,7 @@ ipcMain.handle('get-default-language', async () => {
 	}
 })
 
-// System prompt handlers
+// System prompt handlers (legacy - for backward compatibility)
 ipcMain.handle('set-system-prompt', async (_, prompt) => {
 	try {
 		await db.setSystemPrompt(prompt)
@@ -167,10 +167,10 @@ ipcMain.handle('get-system-prompt', async () => {
 	}
 })
 
-// User prompt handlers
+// User prompt handlers (legacy - for backward compatibility)
 ipcMain.handle('set-user-prompt', async (_, prompt) => {
 	try {
-		await db.setSetting('userPrompt', prompt)
+		await db.setUserPrompt(prompt)
 		return { success: true }
 	} catch (error) {
 		console.error('Error setting user prompt:', error)
@@ -180,13 +180,128 @@ ipcMain.handle('set-user-prompt', async (_, prompt) => {
 
 ipcMain.handle('get-user-prompt', async () => {
 	try {
-		return await db.getSetting(
-			'userPrompt',
-			'Create a detailed table of contents for this content with timestamps, highlighting the main topics and subtopics discussed. Use the transcription below:\n\n{transcription}'
-		)
+		return await db.getUserPrompt()
 	} catch (error) {
 		console.error('Error getting user prompt:', error)
 		return 'Create a detailed table of contents for this content with timestamps, highlighting the main topics and subtopics discussed. Use the transcription below:\n\n{transcription}'
+	}
+})
+
+// Multiple System Prompts handlers
+ipcMain.handle('get-system-prompts', async () => {
+	try {
+		return await db.getSystemPrompts()
+	} catch (error) {
+		console.error('Error getting system prompts:', error)
+		throw error
+	}
+})
+
+ipcMain.handle('save-system-prompt', async (_, prompt) => {
+	try {
+		const result = await db.saveSystemPrompt(prompt)
+		return { success: true, prompt: result }
+	} catch (error) {
+		console.error('Error saving system prompt:', error)
+		throw error
+	}
+})
+
+ipcMain.handle('update-system-prompt', async (_, id, updates) => {
+	try {
+		await db.updateSystemPrompt(id, updates)
+		return { success: true }
+	} catch (error) {
+		console.error('Error updating system prompt:', error)
+		throw error
+	}
+})
+
+ipcMain.handle('delete-system-prompt', async (_, id) => {
+	try {
+		await db.deleteSystemPrompt(id)
+		return { success: true }
+	} catch (error) {
+		console.error('Error deleting system prompt:', error)
+		throw error
+	}
+})
+
+ipcMain.handle('set-selected-system-prompt', async (_, id) => {
+	try {
+		await db.setSelectedSystemPrompt(id)
+		return { success: true }
+	} catch (error) {
+		console.error('Error setting selected system prompt:', error)
+		throw error
+	}
+})
+
+ipcMain.handle('get-selected-system-prompt-id', async () => {
+	try {
+		return await db.getSelectedSystemPromptId()
+	} catch (error) {
+		console.error('Error getting selected system prompt ID:', error)
+		return null
+	}
+})
+
+// Multiple User Prompts handlers
+ipcMain.handle('get-user-prompts', async () => {
+	try {
+		return await db.getUserPrompts()
+	} catch (error) {
+		console.error('Error getting user prompts:', error)
+		throw error
+	}
+})
+
+ipcMain.handle('save-user-prompt', async (_, prompt) => {
+	try {
+		const result = await db.saveUserPrompt(prompt)
+		return { success: true, prompt: result }
+	} catch (error) {
+		console.error('Error saving user prompt:', error)
+		throw error
+	}
+})
+
+ipcMain.handle('update-user-prompt', async (_, id, updates) => {
+	try {
+		await db.updateUserPrompt(id, updates)
+		return { success: true }
+	} catch (error) {
+		console.error('Error updating user prompt:', error)
+		throw error
+	}
+})
+
+ipcMain.handle('delete-user-prompt', async (_, id) => {
+	try {
+		await db.deleteUserPrompt(id)
+		return { success: true }
+	} catch (error) {
+		console.error('Error deleting user prompt:', error)
+		throw error
+	}
+})
+
+ipcMain.handle('set-selected-user-prompt', async (_, id) => {
+	try {
+		await db.setSelectedUserPrompt(id)
+		return { success: true }
+	} catch (error) {
+		console.error('Error setting selected user prompt:', error)
+		throw error
+	}
+})
+
+ipcMain.handle('get-selected-user-prompt-id', async () => {
+	try {
+		return await db.getSelectedUserPromptId()
+	} catch (error) {
+		console.error('Error getting selected user prompt ID:', error)
+		return null
 	}
 })
 
@@ -255,13 +370,14 @@ ipcMain.handle('get-ffmpeg-info', async () => {
 })
 
 // Regenerate index handler
-ipcMain.handle('regenerate-index', async (_, { id, transcription, language, prompt }) => {
+ipcMain.handle('regenerate-index', async (_, { id, transcription, language, userPrompt, systemPrompt }) => {
 	try {
 		console.log('🔄 Starting content regeneration process for ID:', id)
 		console.log('📋 Parameters:', {
 			transcriptionLength: transcription.length,
 			language,
-			promptLength: prompt.length
+			userPromptLength: userPrompt.length,
+			systemPromptLength: systemPrompt.length
 		})
 
 		// Get generation service config
@@ -276,16 +392,13 @@ ipcMain.handle('regenerate-index', async (_, { id, transcription, language, prom
 			apiKey: aiConfig.apiKey ? '[HIDDEN]' : '[MISSING]'
 		})
 
-		// Get system prompt
-		console.log('📝 Getting system prompt...')
-		const systemPrompt = await db.getSystemPrompt()
-		console.log('✅ System prompt loaded, length:', systemPrompt.length, 'characters')
+		console.log('✅ System prompt provided, length:', systemPrompt.length, 'characters')
 
 		// Generate the new content
 		console.log('🤖 Starting content regeneration...')
 		const result = await aiService.regenerateIndex(
 			{
-				userPrompt: prompt,
+				userPrompt,
 				transcription,
 				systemPrompt,
 				language
@@ -295,18 +408,19 @@ ipcMain.handle('regenerate-index', async (_, { id, transcription, language, prom
 		)
 		console.log('✅ Content regeneration completed, length:', result.index.length, 'characters')
 
-		// Update the result in the database
+		// Update the result in the database with new system prompt content
 		console.log('💾 Updating result in database...')
 		await db.updateTranscriptionResult(id, {
 			index_content: result.index,
-			prompt: prompt
+			prompt: userPrompt,
+			system_prompt: systemPrompt
 		})
 		console.log('✅ Result updated in database')
 
 		return {
 			success: true,
 			index: result.index,
-			prompt: prompt
+			prompt: userPrompt
 		}
 	} catch (error: any) {
 		console.error('❌ Error in content regeneration process:', error)
@@ -335,11 +449,15 @@ ipcMain.handle('save-result', async (_, data) => {
 	try {
 		console.log('💾 Saving transcription result to database...')
 
+		// Get the currently selected system prompt content
+		const systemPrompt = await db.getSystemPrompt()
+
 		// Map frontend fields to database fields and add current date
 		const dbData = {
 			...data,
 			date: new Date().toISOString(), // Add current timestamp
-			index_content: data.index // Map index to index_content for database
+			index_content: data.index, // Map index to index_content for database
+			system_prompt: systemPrompt // Store the system prompt content used
 		}
 
 		const result = await db.saveTranscriptionResult(dbData)
@@ -591,6 +709,9 @@ ipcMain.handle(
 					sendProgress(event, progressStatus, i, filePaths.length, 'generating')
 					const index = await generateContentIndex(transcription, prompt, language, aiServiceType)
 
+					// Get the currently selected system prompt content
+					const systemPrompt = await db.getSystemPrompt()
+
 					// Step 4: Save Results
 					sendProgress(event, progressStatus, i, filePaths.length, 'saving')
 					const savedResult = await db.saveTranscriptionResult({
@@ -601,7 +722,8 @@ ipcMain.handle(
 						index_content: index,
 						prompt: prompt,
 						audio_path: audioPath,
-						date: new Date().toISOString()
+						date: new Date().toISOString(),
+						system_prompt: systemPrompt
 					})
 
 					results.push({

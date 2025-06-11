@@ -8,10 +8,27 @@ contextBridge.exposeInMainWorld('electronAPI', {
 	saveApiConfig: (config: any) => ipcRenderer.invoke('save-api-config', config),
 	getDefaultLanguage: () => ipcRenderer.invoke('get-default-language'),
 	setDefaultLanguage: (language: string) => ipcRenderer.invoke('set-default-language', language),
+	// Legacy prompts (for backward compatibility)
 	getSystemPrompt: () => ipcRenderer.invoke('get-system-prompt'),
 	setSystemPrompt: (prompt: string) => ipcRenderer.invoke('set-system-prompt', prompt),
 	getUserPrompt: () => ipcRenderer.invoke('get-user-prompt'),
 	setUserPrompt: (prompt: string) => ipcRenderer.invoke('set-user-prompt', prompt),
+
+	// Multiple System Prompts
+	getSystemPrompts: () => ipcRenderer.invoke('get-system-prompts'),
+	saveSystemPrompt: (prompt: any) => ipcRenderer.invoke('save-system-prompt', prompt),
+	updateSystemPrompt: (id: number, updates: any) => ipcRenderer.invoke('update-system-prompt', id, updates),
+	deleteSystemPrompt: (id: number) => ipcRenderer.invoke('delete-system-prompt', id),
+	setSelectedSystemPrompt: (id: number) => ipcRenderer.invoke('set-selected-system-prompt', id),
+	getSelectedSystemPromptId: () => ipcRenderer.invoke('get-selected-system-prompt-id'),
+
+	// Multiple User Prompts
+	getUserPrompts: () => ipcRenderer.invoke('get-user-prompts'),
+	saveUserPrompt: (prompt: any) => ipcRenderer.invoke('save-user-prompt', prompt),
+	updateUserPrompt: (id: number, updates: any) => ipcRenderer.invoke('update-user-prompt', id, updates),
+	deleteUserPrompt: (id: number) => ipcRenderer.invoke('delete-user-prompt', id),
+	setSelectedUserPrompt: (id: number) => ipcRenderer.invoke('set-selected-user-prompt', id),
+	getSelectedUserPromptId: () => ipcRenderer.invoke('get-selected-user-prompt-id'),
 	getTranscriptionService: () => ipcRenderer.invoke('get-transcription-service'),
 	setTranscriptionService: (service: string) => ipcRenderer.invoke('set-transcription-service', service),
 	getGenerationService: () => ipcRenderer.invoke('get-generation-service'),

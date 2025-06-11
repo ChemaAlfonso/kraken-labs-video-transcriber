@@ -62,8 +62,53 @@
         </select>
       </div>
       
+      <!-- System Prompt Selection -->
       <div class="mb-4">
-        <label class="block text-sm font-medium text-gray-700 mb-2">Custom Prompt</label>
+        <div class="flex items-center justify-between mb-2">
+          <label class="block text-sm font-medium text-gray-700">System Prompt</label>
+          <button 
+            @click="goToConfiguration" 
+            class="text-xs text-blue-600 hover:text-blue-800 underline"
+          >
+            Manage Prompts
+          </button>
+        </div>
+        <select 
+          v-model="selectedSystemPromptId" 
+          @change="onSystemPromptChange"
+          class="w-full p-2 border rounded"
+          :disabled="isGenerating"
+        >
+          <option v-for="systemPrompt in systemPrompts" :key="systemPrompt.id" :value="systemPrompt.id">
+            {{ systemPrompt.name }}{{ systemPrompt.is_default ? ' (Default)' : '' }}
+          </option>
+        </select>
+        <p class="mt-1 text-xs text-gray-500">
+          System prompt defines the AI's role and behavior. You can create and manage prompts in the Configuration section.
+        </p>
+      </div>
+
+      <!-- User Prompt Selection -->
+      <div class="mb-4">
+        <div class="flex items-center justify-between mb-2">
+          <label class="block text-sm font-medium text-gray-700">User Prompt</label>
+          <button 
+            @click="goToConfiguration" 
+            class="text-xs text-blue-600 hover:text-blue-800 underline"
+          >
+            Manage Prompts
+          </button>
+        </div>
+        <select 
+          v-model="selectedUserPromptId" 
+          @change="onUserPromptChange"
+          class="w-full p-2 border rounded mb-2"
+          :disabled="isGenerating"
+        >
+          <option v-for="userPrompt in userPrompts" :key="userPrompt.id" :value="userPrompt.id">
+            {{ userPrompt.name }}{{ userPrompt.is_default ? ' (Default)' : '' }}
+          </option>
+        </select>
         <textarea 
           v-model="prompt" 
           rows="4" 
@@ -74,7 +119,7 @@
           :disabled="isGenerating"
         ></textarea>
         <p class="mt-1 text-xs text-gray-500">
-          You can customize how the AI processes your content. Use {transcription} to reference the transcribed content.
+          User prompt defines what you want the AI to do with your content. Use {transcription} to reference the transcribed content.
         </p>
       </div>
       
@@ -198,6 +243,12 @@ export default defineComponent({
     const showConfigModal = ref(false);
     const configurationIssues = ref<ConfigurationIssue[]>([]);
 
+    // Prompt management
+    const systemPrompts = ref<SystemPrompt[]>([]);
+    const userPrompts = ref<UserPrompt[]>([]);
+    const selectedSystemPromptId = ref<number | null>(null);
+    const selectedUserPromptId = ref<number | null>(null);
+
     // Computed property to check if generation can be started
     const canGenerate = computed(() => {
       return selectedFiles.value.length > 0 && (selectedFiles.value.length > 1 || title.value.trim() !== '');
@@ -213,6 +264,58 @@ export default defineComponent({
 			title.value = `${selectedFiles.value.length} files selected`;
 		}
 	}
+
+	// Load prompts data
+	const loadPrompts = async () => {
+		try {
+			systemPrompts.value = await window.electronAPI.getSystemPrompts();
+			userPrompts.value = await window.electronAPI.getUserPrompts();
+
+			// Load selected prompts
+			const selectedSystemId = await window.electronAPI.getSelectedSystemPromptId();
+			const selectedUserId = await window.electronAPI.getSelectedUserPromptId();
+
+			selectedSystemPromptId.value = selectedSystemId;
+			selectedUserPromptId.value = selectedUserId;
+
+			// Update prompt text based on selected user prompt
+			if (selectedUserId) {
+				const selectedUserPrompt = userPrompts.value.find(p => p.id === selectedUserId);
+				if (selectedUserPrompt) {
+					prompt.value = selectedUserPrompt.content;
+				}
+			}
+		} catch (err) {
+			console.error('Error loading prompts:', err);
+		}
+	};
+
+	// Handle system prompt changes
+	const onSystemPromptChange = async () => {
+		if (selectedSystemPromptId.value) {
+			try {
+				await window.electronAPI.setSelectedSystemPrompt(selectedSystemPromptId.value);
+			} catch (err) {
+				console.error('Error setting selected system prompt:', err);
+			}
+		}
+	};
+
+	// Handle user prompt changes
+	const onUserPromptChange = async () => {
+		if (selectedUserPromptId.value) {
+			try {
+				await window.electronAPI.setSelectedUserPrompt(selectedUserPromptId.value);
+				// Update the prompt text
+				const selectedUserPrompt = userPrompts.value.find(p => p.id === selectedUserPromptId.value);
+				if (selectedUserPrompt) {
+					prompt.value = selectedUserPrompt.content;
+				}
+			} catch (err) {
+				console.error('Error setting selected user prompt:', err);
+			}
+		}
+	};
 
     // Check configuration validity
     const checkConfiguration = async (): Promise<ConfigurationIssue[]> => {
@@ -395,9 +498,8 @@ export default defineComponent({
         const defaultLanguage = await window.electronAPI.getDefaultLanguage();
         language.value = defaultLanguage;
         
-        // Load saved user prompt
-        const savedPrompt = await window.electronAPI.getUserPrompt();
-        prompt.value = savedPrompt;
+        // Load prompts
+        await loadPrompts();
         
         // Set up progress listener for file queue processing
         window.electronAPI.onProcessFileQueueProgress((data: { 
@@ -550,6 +652,13 @@ export default defineComponent({
       error,
       showConfigModal,
       configurationIssues,
+      // Prompts management
+      systemPrompts,
+      userPrompts,
+      selectedSystemPromptId,
+      selectedUserPromptId,
+      onSystemPromptChange,
+      onUserPromptChange,
       openFileDialog,
       handleGenerateClick,
       closeConfigModal,

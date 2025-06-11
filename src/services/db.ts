@@ -24,6 +24,23 @@ interface TranscriptionResult {
 	transcription: string
 	prompt: string
 	audio_path: string
+	system_prompt?: string
+}
+
+interface SystemPrompt {
+	id?: number
+	name: string
+	content: string
+	is_default: boolean
+	created_at: string
+}
+
+interface UserPrompt {
+	id?: number
+	name: string
+	content: string
+	is_default: boolean
+	created_at: string
 }
 
 export async function initialize(): Promise<Database.Database> {
@@ -50,7 +67,8 @@ export async function initialize(): Promise<Database.Database> {
       index_content TEXT NOT NULL,
       transcription TEXT NOT NULL,
       prompt TEXT NOT NULL,
-      audio_path TEXT NOT NULL
+      audio_path TEXT NOT NULL,
+      system_prompt TEXT
     );
     
     CREATE TABLE IF NOT EXISTS api_config (
@@ -67,6 +85,22 @@ export async function initialize(): Promise<Database.Database> {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       key TEXT NOT NULL UNIQUE,
       value TEXT NOT NULL
+    );
+    
+    CREATE TABLE IF NOT EXISTS system_prompts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      content TEXT NOT NULL,
+      is_default BOOLEAN DEFAULT 0,
+      created_at TEXT NOT NULL
+    );
+    
+    CREATE TABLE IF NOT EXISTS user_prompts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      content TEXT NOT NULL,
+      is_default BOOLEAN DEFAULT 0,
+      created_at TEXT NOT NULL
     );
   `)
 
@@ -114,6 +148,19 @@ export async function initialize(): Promise<Database.Database> {
 		db.exec(`ALTER TABLE api_config ADD COLUMN whisper_model TEXT DEFAULT 'whisper-1';`)
 		console.log('✅ Database schema updated with whisper_model field')
 	}
+
+	// Check if generations table needs system_prompt field
+	const generationsTableInfo = db.pragma('table_info(generations)') as Array<{ name: string; [key: string]: any }>
+	const hasSystemPromptField = generationsTableInfo.some(column => column.name === 'system_prompt')
+
+	if (!hasSystemPromptField) {
+		console.log('🔄 Adding system_prompt field to generations table...')
+		db.exec(`ALTER TABLE generations ADD COLUMN system_prompt TEXT;`)
+		console.log('✅ Database schema updated with system_prompt field')
+	}
+
+	// Initialize default prompts if tables are empty
+	await initializeDefaultPrompts()
 
 	return db
 }
@@ -181,15 +228,73 @@ export async function getSetting(key: string, defaultValue: string | null = null
 	return result ? result.value : defaultValue
 }
 
-// System prompt functions
-export async function setSystemPrompt(prompt: string): Promise<void> {
-	return await setSetting('systemPrompt', prompt)
+// Legacy system prompt functions - replaced by new multi-prompt system
+
+// Transcription results functions
+export async function saveTranscriptionResult(data: Omit<TranscriptionResult, 'id'>): Promise<TranscriptionResult> {
+	const database = getDb()
+	const stmt = database.prepare(
+		`INSERT INTO generations (title, source, date, language, index_content, transcription, prompt, audio_path, system_prompt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	)
+	const result = stmt.run(
+		data.title,
+		data.source,
+		data.date,
+		data.language,
+		data.index_content,
+		data.transcription,
+		data.prompt,
+		data.audio_path,
+		data.system_prompt || null
+	)
+
+	return {
+		id: Number(result.lastInsertRowid),
+		...data
+	}
 }
 
-export async function getSystemPrompt(): Promise<string> {
-	const result = await getSetting(
-		'systemPrompt',
-		`You are an expert in generating summaries and timestamped indexes based on transcripts of video sessions.
+export async function getTranscriptionResults(): Promise<TranscriptionResult[]> {
+	const database = getDb()
+	const stmt = database.prepare('SELECT * FROM generations ORDER BY id DESC')
+	return stmt.all() as TranscriptionResult[]
+}
+
+export async function deleteTranscriptionResult(id: number): Promise<void> {
+	const database = getDb()
+	const stmt = database.prepare('DELETE FROM generations WHERE id = ?')
+	stmt.run(id)
+}
+
+export async function updateTranscriptionResult(id: number, updates: Partial<TranscriptionResult>): Promise<void> {
+	const database = getDb()
+	const fields = Object.keys(updates)
+		.map(key => `${key} = ?`)
+		.join(', ')
+	const values = Object.values(updates)
+
+	const stmt = database.prepare(`UPDATE generations SET ${fields} WHERE id = ?`)
+	stmt.run(...values, id)
+}
+
+// Initialize default prompts if they don't exist
+async function initializeDefaultPrompts(): Promise<void> {
+	const database = getDb()
+
+	// Check if we have any system prompts
+	const systemPromptCount = database.prepare('SELECT COUNT(*) as count FROM system_prompts').get() as {
+		count: number
+	}
+
+	if (systemPromptCount.count === 0) {
+		console.log('🔄 Creating default system prompt...')
+
+		// Get existing system prompt from settings or use default
+		const existingSystemPrompt = await getSetting('systemPrompt', null)
+		const defaultSystemPromptContent =
+			existingSystemPrompt ||
+			`You are an expert in generating summaries and timestamped indexes based on transcripts of video sessions.
 
 The sessions are divided into segments with real timestamps (in seconds), in this format:
 
@@ -237,53 +342,349 @@ Do not include any preamble or introduction. Start directly with the content org
 - etc.
 
 Remember: Be thorough, precise with timestamps, and prioritize content clarity over brevity.`
-	)
-	return result || ''
-}
 
-// Transcription results functions
-export async function saveTranscriptionResult(data: Omit<TranscriptionResult, 'id'>): Promise<TranscriptionResult> {
-	const database = getDb()
-	const stmt = database.prepare(
-		`INSERT INTO generations (title, source, date, language, index_content, transcription, prompt, audio_path)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-	)
-	const result = stmt.run(
-		data.title,
-		data.source,
-		data.date,
-		data.language,
-		data.index_content,
-		data.transcription,
-		data.prompt,
-		data.audio_path
-	)
+		const stmt = database.prepare(`
+			INSERT INTO system_prompts (name, content, is_default, created_at)
+			VALUES (?, ?, ?, ?)
+		`)
+		stmt.run('Default System Prompt', defaultSystemPromptContent, 1, new Date().toISOString())
+		console.log('✅ Default system prompt created')
+	}
 
-	return {
-		id: Number(result.lastInsertRowid),
-		...data
+	// Check if we have any user prompts
+	const userPromptCount = database.prepare('SELECT COUNT(*) as count FROM user_prompts').get() as { count: number }
+
+	if (userPromptCount.count === 0) {
+		console.log('🔄 Creating default user prompt...')
+
+		// Get existing user prompt from settings or use default
+		const existingUserPrompt = await getSetting('userPrompt', null)
+		const defaultUserPromptContent =
+			existingUserPrompt ||
+			'Create a detailed table of contents for this content with timestamps, highlighting the main topics and subtopics discussed. Use the transcription below:\n\n{transcription}'
+
+		const stmt = database.prepare(`
+			INSERT INTO user_prompts (name, content, is_default, created_at)
+			VALUES (?, ?, ?, ?)
+		`)
+		stmt.run('Default User Prompt', defaultUserPromptContent, 1, new Date().toISOString())
+		console.log('✅ Default user prompt created')
 	}
 }
 
-export async function getTranscriptionResults(): Promise<TranscriptionResult[]> {
+// System prompt management functions
+export async function getSystemPrompts(): Promise<SystemPrompt[]> {
 	const database = getDb()
-	const stmt = database.prepare('SELECT * FROM generations ORDER BY id DESC')
-	return stmt.all() as TranscriptionResult[]
+	const stmt = database.prepare('SELECT * FROM system_prompts ORDER BY is_default DESC, created_at DESC')
+	return stmt.all() as SystemPrompt[]
 }
 
-export async function deleteTranscriptionResult(id: number): Promise<void> {
+export async function getSystemPrompt(id?: number): Promise<string> {
 	const database = getDb()
-	const stmt = database.prepare('DELETE FROM generations WHERE id = ?')
-	stmt.run(id)
+
+	if (id) {
+		// Get specific system prompt by ID
+		const stmt = database.prepare('SELECT content FROM system_prompts WHERE id = ?')
+		const result = stmt.get(id) as { content: string } | undefined
+		if (result) {
+			return result.content
+		}
+	}
+
+	// Get currently selected system prompt from settings
+	const selectedId = await getSetting('selectedSystemPromptId', null)
+	if (selectedId) {
+		const stmt = database.prepare('SELECT content FROM system_prompts WHERE id = ?')
+		const result = stmt.get(parseInt(selectedId)) as { content: string } | undefined
+		if (result) {
+			return result.content
+		}
+	}
+
+	// Get default system prompt
+	const stmt = database.prepare('SELECT content FROM system_prompts WHERE is_default = 1 LIMIT 1')
+	const result = stmt.get() as { content: string } | undefined
+
+	if (result) {
+		return result.content
+	}
+
+	// Legacy fallback to old system prompt setting
+	const legacyPrompt = await getSetting('systemPrompt', null)
+	if (legacyPrompt) {
+		return legacyPrompt
+	}
+
+	// Ultimate fallback
+	return 'You are an assistant that creates detailed and accurate content analysis from transcriptions. Focus on creating clear, organized, and helpful content that helps users quickly understand and navigate the source material.'
 }
 
-export async function updateTranscriptionResult(id: number, updates: Partial<TranscriptionResult>): Promise<void> {
+export async function saveSystemPrompt(prompt: Omit<SystemPrompt, 'id' | 'created_at'>): Promise<SystemPrompt> {
 	const database = getDb()
+
+	// If this is being set as default, remove default from others
+	if (prompt.is_default) {
+		database.prepare('UPDATE system_prompts SET is_default = 0').run()
+	}
+
+	const stmt = database.prepare(`
+		INSERT INTO system_prompts (name, content, is_default, created_at)
+		VALUES (?, ?, ?, ?)
+	`)
+	const result = stmt.run(prompt.name, prompt.content, prompt.is_default ? 1 : 0, new Date().toISOString())
+
+	return {
+		id: Number(result.lastInsertRowid),
+		...prompt,
+		created_at: new Date().toISOString()
+	}
+}
+
+export async function updateSystemPrompt(
+	id: number,
+	updates: Partial<Omit<SystemPrompt, 'id' | 'created_at'>>
+): Promise<void> {
+	const database = getDb()
+
+	// If this is being set as default, remove default from others
+	if (updates.is_default) {
+		database.prepare('UPDATE system_prompts SET is_default = 0').run()
+	}
+
 	const fields = Object.keys(updates)
 		.map(key => `${key} = ?`)
 		.join(', ')
-	const values = Object.values(updates)
+	const values = Object.values(updates).map(value => (typeof value === 'boolean' ? (value ? 1 : 0) : value))
 
-	const stmt = database.prepare(`UPDATE generations SET ${fields} WHERE id = ?`)
+	const stmt = database.prepare(`UPDATE system_prompts SET ${fields} WHERE id = ?`)
 	stmt.run(...values, id)
+}
+
+export async function deleteSystemPrompt(id: number): Promise<void> {
+	const database = getDb()
+
+	// Don't allow deleting if it's the only system prompt
+	const count = database.prepare('SELECT COUNT(*) as count FROM system_prompts').get() as { count: number }
+	if (count.count <= 1) {
+		throw new Error('Cannot delete the last system prompt')
+	}
+
+	// Check if this is the currently selected prompt
+	const selectedId = await getSetting('selectedSystemPromptId', null)
+	if (selectedId && parseInt(selectedId) === id) {
+		// Select the default prompt instead
+		const defaultPrompt = database.prepare('SELECT id FROM system_prompts WHERE is_default = 1 LIMIT 1').get() as
+			| { id: number }
+			| undefined
+		if (defaultPrompt) {
+			await setSetting('selectedSystemPromptId', defaultPrompt.id.toString())
+		} else {
+			// If no default, select the first available
+			const firstPrompt = database.prepare('SELECT id FROM system_prompts WHERE id != ? LIMIT 1').get(id) as
+				| { id: number }
+				| undefined
+			if (firstPrompt) {
+				await setSetting('selectedSystemPromptId', firstPrompt.id.toString())
+			}
+		}
+	}
+
+	const stmt = database.prepare('DELETE FROM system_prompts WHERE id = ?')
+	stmt.run(id)
+}
+
+export async function setSelectedSystemPrompt(id: number): Promise<void> {
+	await setSetting('selectedSystemPromptId', id.toString())
+}
+
+export async function getSelectedSystemPromptId(): Promise<number | null> {
+	const selectedId = await getSetting('selectedSystemPromptId', null)
+	if (selectedId) {
+		return parseInt(selectedId)
+	}
+
+	// Return default system prompt ID if no selection
+	const database = getDb()
+	const defaultPrompt = database.prepare('SELECT id FROM system_prompts WHERE is_default = 1 LIMIT 1').get() as
+		| { id: number }
+		| undefined
+	return defaultPrompt ? defaultPrompt.id : null
+}
+
+// User prompt management functions
+export async function getUserPrompts(): Promise<UserPrompt[]> {
+	const database = getDb()
+	const stmt = database.prepare('SELECT * FROM user_prompts ORDER BY is_default DESC, created_at DESC')
+	return stmt.all() as UserPrompt[]
+}
+
+export async function getUserPrompt(id?: number): Promise<string> {
+	const database = getDb()
+
+	if (id) {
+		// Get specific user prompt by ID
+		const stmt = database.prepare('SELECT content FROM user_prompts WHERE id = ?')
+		const result = stmt.get(id) as { content: string } | undefined
+		if (result) {
+			return result.content
+		}
+	}
+
+	// Get currently selected user prompt from settings
+	const selectedId = await getSetting('selectedUserPromptId', null)
+	if (selectedId) {
+		const stmt = database.prepare('SELECT content FROM user_prompts WHERE id = ?')
+		const result = stmt.get(parseInt(selectedId)) as { content: string } | undefined
+		if (result) {
+			return result.content
+		}
+	}
+
+	// Get default user prompt
+	const stmt = database.prepare('SELECT content FROM user_prompts WHERE is_default = 1 LIMIT 1')
+	const result = stmt.get() as { content: string } | undefined
+
+	if (result) {
+		return result.content
+	}
+
+	// Legacy fallback to old user prompt setting
+	const legacyPrompt = await getSetting('userPrompt', null)
+	if (legacyPrompt) {
+		return legacyPrompt
+	}
+
+	// Ultimate fallback
+	return 'Create a detailed table of contents for this content with timestamps, highlighting the main topics and subtopics discussed. Use the transcription below:\n\n{transcription}'
+}
+
+export async function saveUserPrompt(prompt: Omit<UserPrompt, 'id' | 'created_at'>): Promise<UserPrompt> {
+	const database = getDb()
+
+	// If this is being set as default, remove default from others
+	if (prompt.is_default) {
+		database.prepare('UPDATE user_prompts SET is_default = 0').run()
+	}
+
+	const stmt = database.prepare(`
+		INSERT INTO user_prompts (name, content, is_default, created_at)
+		VALUES (?, ?, ?, ?)
+	`)
+	const result = stmt.run(prompt.name, prompt.content, prompt.is_default ? 1 : 0, new Date().toISOString())
+
+	return {
+		id: Number(result.lastInsertRowid),
+		...prompt,
+		created_at: new Date().toISOString()
+	}
+}
+
+export async function updateUserPrompt(
+	id: number,
+	updates: Partial<Omit<UserPrompt, 'id' | 'created_at'>>
+): Promise<void> {
+	const database = getDb()
+
+	// If this is being set as default, remove default from others
+	if (updates.is_default) {
+		database.prepare('UPDATE user_prompts SET is_default = 0').run()
+	}
+
+	const fields = Object.keys(updates)
+		.map(key => `${key} = ?`)
+		.join(', ')
+	const values = Object.values(updates).map(value => (typeof value === 'boolean' ? (value ? 1 : 0) : value))
+
+	const stmt = database.prepare(`UPDATE user_prompts SET ${fields} WHERE id = ?`)
+	stmt.run(...values, id)
+}
+
+export async function deleteUserPrompt(id: number): Promise<void> {
+	const database = getDb()
+
+	// Don't allow deleting if it's the only user prompt
+	const count = database.prepare('SELECT COUNT(*) as count FROM user_prompts').get() as { count: number }
+	if (count.count <= 1) {
+		throw new Error('Cannot delete the last user prompt')
+	}
+
+	// Check if this is the currently selected prompt
+	const selectedId = await getSetting('selectedUserPromptId', null)
+	if (selectedId && parseInt(selectedId) === id) {
+		// Select the default prompt instead
+		const defaultPrompt = database.prepare('SELECT id FROM user_prompts WHERE is_default = 1 LIMIT 1').get() as
+			| { id: number }
+			| undefined
+		if (defaultPrompt) {
+			await setSetting('selectedUserPromptId', defaultPrompt.id.toString())
+		} else {
+			// If no default, select the first available
+			const firstPrompt = database.prepare('SELECT id FROM user_prompts WHERE id != ? LIMIT 1').get(id) as
+				| { id: number }
+				| undefined
+			if (firstPrompt) {
+				await setSetting('selectedUserPromptId', firstPrompt.id.toString())
+			}
+		}
+	}
+
+	const stmt = database.prepare('DELETE FROM user_prompts WHERE id = ?')
+	stmt.run(id)
+}
+
+export async function setSelectedUserPrompt(id: number): Promise<void> {
+	await setSetting('selectedUserPromptId', id.toString())
+}
+
+export async function getSelectedUserPromptId(): Promise<number | null> {
+	const selectedId = await getSetting('selectedUserPromptId', null)
+	if (selectedId) {
+		return parseInt(selectedId)
+	}
+
+	// Return default user prompt ID if no selection
+	const database = getDb()
+	const defaultPrompt = database.prepare('SELECT id FROM user_prompts WHERE is_default = 1 LIMIT 1').get() as
+		| { id: number }
+		| undefined
+	return defaultPrompt ? defaultPrompt.id : null
+}
+
+// Legacy functions for backward compatibility
+export async function setSystemPrompt(prompt: string): Promise<void> {
+	// Update the default system prompt instead of using settings
+	const database = getDb()
+	const defaultPrompt = database.prepare('SELECT id FROM system_prompts WHERE is_default = 1 LIMIT 1').get() as
+		| { id: number }
+		| undefined
+
+	if (defaultPrompt) {
+		await updateSystemPrompt(defaultPrompt.id, { content: prompt })
+	} else {
+		// Create a new default system prompt
+		await saveSystemPrompt({
+			name: 'Default System Prompt',
+			content: prompt,
+			is_default: true
+		})
+	}
+}
+
+export async function setUserPrompt(prompt: string): Promise<void> {
+	// Update the default user prompt instead of using settings
+	const database = getDb()
+	const defaultPrompt = database.prepare('SELECT id FROM user_prompts WHERE is_default = 1 LIMIT 1').get() as
+		| { id: number }
+		| undefined
+
+	if (defaultPrompt) {
+		await updateUserPrompt(defaultPrompt.id, { content: prompt })
+	} else {
+		// Create a new default user prompt
+		await saveUserPrompt({
+			name: 'Default User Prompt',
+			content: prompt,
+			is_default: true
+		})
+	}
 }
