@@ -393,36 +393,40 @@ ipcMain.handle('open-external-url', async (_, url) => {
 	}
 })
 
-const transcribeVideo = async (
-	audioPath: string,
-	serviceType: string,
-	aiServiceType: string,
-	prompt: string,
-	language: string
-) => {
+// Step 1: Extract or process audio from media file
+const processMediaToAudio = async (filePath: string): Promise<string> => {
 	try {
-		console.log('🎬 Starting transcription process with:', { serviceType, aiServiceType, language })
-		console.log('📁 Input file path:', audioPath)
+		console.log('📁 Input file path:', filePath)
 
 		// Determine if input is audio or video
-		const fileType = utils.getFileType(audioPath)
+		const fileType = utils.getFileType(filePath)
 		console.log('📋 File type detected:', fileType)
 
-		let finalAudioPath = audioPath
+		let finalAudioPath = filePath
 
 		// If it's a video file, extract audio first
 		if (fileType === 'video') {
 			console.log('🎬 Video file detected - extracting audio...')
-			finalAudioPath = await ffmpegService.extractAudio(audioPath)
+			finalAudioPath = await ffmpegService.extractAudio(filePath)
 			console.log('✅ Audio extracted to:', finalAudioPath)
 		} else if (fileType === 'audio') {
 			console.log('🎵 Audio file detected - processing and optimizing...')
-			finalAudioPath = await ffmpegService.processAudio(audioPath)
+			finalAudioPath = await ffmpegService.processAudio(filePath)
 			console.log('✅ Audio processed and optimized to:', finalAudioPath)
 		} else {
 			throw new Error('Unsupported file type. Please select a video or audio file.')
 		}
 
+		return finalAudioPath
+	} catch (error) {
+		console.error('❌ Error in audio processing:', error)
+		throw error
+	}
+}
+
+// Step 2: Transcribe audio file
+const transcribeAudioFile = async (audioPath: string, serviceType: string, language: string): Promise<string> => {
+	try {
 		// Get transcription service config
 		console.log('⚙️ Getting transcription service config for:', serviceType)
 		const transcriptionConfig = await db.getApiConfig(serviceType)
@@ -434,13 +438,28 @@ const transcribeVideo = async (
 		// Transcribe the audio
 		console.log('🎙️ Starting audio transcription...')
 		const transcription = await transcriptionService.transcribe(
-			finalAudioPath,
+			audioPath,
 			serviceType,
 			transcriptionConfig,
 			language
 		)
 		console.log('✅ Transcription completed, length:', transcription.length, 'characters')
 
+		return transcription
+	} catch (error) {
+		console.error('❌ Error in transcription:', error)
+		throw error
+	}
+}
+
+// Step 3: Generate index/content using AI
+const generateContentIndex = async (
+	transcription: string,
+	prompt: string,
+	language: string,
+	aiServiceType: string
+): Promise<string> => {
+	try {
 		// Get AI service config
 		console.log('⚙️ Getting AI service config for:', aiServiceType)
 		const aiConfig = await db.getApiConfig(aiServiceType)
@@ -468,27 +487,87 @@ const transcribeVideo = async (
 		)
 		console.log('✅ Index generation completed, length:', result.index.length, 'characters')
 
-		return {
-			transcription,
-			index: result.index
-		}
+		return result.index
 	} catch (error) {
-		console.error('❌ Error in transcription process:', error)
+		console.error('❌ Error in index generation:', error)
 		throw error
 	}
+}
+
+type ProgressStatus = {
+	processed: boolean
+	currentFilename: string | null
+	currentStage?: string
+}
+
+const sendProgress = (
+	event: any,
+	filesStatus: ProgressStatus[],
+	currentFileIndex: number,
+	totalFiles: number,
+	currentStage: string = ''
+) => {
+	const totalProcessed = filesStatus.filter(file => file.processed).length
+	const currentFile = filesStatus.find(file => !file.processed)
+
+	// Calculate overall progress: each file contributes equally to total progress
+	// Within each file, we can show stage-based progress
+	const baseProgress = (totalProcessed / totalFiles) * 100
+	const currentFileProgress = currentFileIndex < totalFiles ? (1 / totalFiles) * 100 : 0
+
+	// Add partial progress for current file based on stage
+	let stageProgress = 0
+	if (currentStage && currentFileIndex < totalFiles) {
+		const stageMap: { [key: string]: number } = {
+			starting: 5,
+			extracting: 25,
+			transcribing: 60,
+			generating: 85,
+			saving: 95,
+			completed: 100
+		}
+		stageProgress = (stageMap[currentStage] || 0) * (currentFileProgress / 100)
+	}
+
+	const totalProgress = Math.min(100, Math.round(baseProgress + stageProgress))
+
+	const fileName = currentFile?.currentFilename
+		? currentFile.currentFilename.split(/[\/\\]/).pop() || currentFile.currentFilename
+		: null
+
+	event.sender.send('process-file-queue-progress', {
+		progress: totalProgress,
+		processingFile: fileName,
+		currentFileIndex: currentFileIndex + 1,
+		totalFiles: totalFiles,
+		currentStage: currentStage,
+		processedFiles: totalProcessed
+	})
 }
 
 // Queue processing handler for files (single or multiple)
 ipcMain.handle(
 	'process-file-queue',
-	async (_, { filePaths, titles, transcriptionService: serviceType, aiService: aiServiceType, prompt, language }) => {
+	async (
+		event,
+		{ filePaths, titles, transcriptionService: serviceType, aiService: aiServiceType, prompt, language }
+	) => {
 		try {
 			console.log('📁 Starting queue processing for', filePaths.length, 'files')
 			const results = []
 
+			const progressStatus: ProgressStatus[] = filePaths.map((filePath: string) => ({
+				processed: false,
+				currentFilename: filePath
+			}))
+			sendProgress(event, progressStatus, 0, filePaths.length, 'starting')
+
 			for (let i = 0; i < filePaths.length; i++) {
 				const filePath = filePaths[i]
 				console.log(`🔄 Processing file ${i + 1}/${filePaths.length}:`, filePath)
+
+				// Update progress - starting file
+				sendProgress(event, progressStatus, i, filePaths.length, 'starting')
 
 				// Use provided title or generate from filename
 				let title = ''
@@ -500,17 +579,28 @@ ipcMain.handle(
 				}
 
 				try {
-					const result = await transcribeVideo(filePath, serviceType, aiServiceType, prompt, language)
+					// Step 1: Extract/Process Audio
+					sendProgress(event, progressStatus, i, filePaths.length, 'extracting')
+					const audioPath = await processMediaToAudio(filePath)
 
-					// Save the result
+					// Step 2: Transcribe Audio
+					sendProgress(event, progressStatus, i, filePaths.length, 'transcribing')
+					const transcription = await transcribeAudioFile(audioPath, serviceType, language)
+
+					// Step 3: Generate Index
+					sendProgress(event, progressStatus, i, filePaths.length, 'generating')
+					const index = await generateContentIndex(transcription, prompt, language, aiServiceType)
+
+					// Step 4: Save Results
+					sendProgress(event, progressStatus, i, filePaths.length, 'saving')
 					const savedResult = await db.saveTranscriptionResult({
 						title: title,
 						source: filePath,
 						language: language,
-						transcription: result.transcription,
-						index_content: result.index,
+						transcription: transcription,
+						index_content: index,
 						prompt: prompt,
-						audio_path: filePath,
+						audio_path: audioPath,
 						date: new Date().toISOString()
 					})
 
@@ -531,6 +621,10 @@ ipcMain.handle(
 						title: title
 					})
 				}
+
+				// Mark file as processed and send final progress for this file
+				progressStatus[i].processed = true
+				sendProgress(event, progressStatus, i + 1, filePaths.length, 'completed')
 			}
 
 			console.log(

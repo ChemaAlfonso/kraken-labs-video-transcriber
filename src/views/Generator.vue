@@ -100,11 +100,14 @@
       @goToConfiguration="goToConfiguration"
     />
     
-    <!-- Progress Display - More Visible -->
+    <!-- Progress Display - Enhanced for Multi-file Processing -->
     <div v-if="generationProgress" class="bg-white shadow-lg rounded-lg p-6 border-l-4 border-blue-500 mt-6 animate-fade-in">
       <h2 class="text-xl font-semibold mb-4 text-blue-700 flex items-center">
-        <span class="animate-spin mr-2">⚙️</span>
+        <span class="animate-spin mr-2">🌀</span>
         Processing Media
+        <span v-if="selectedFiles.length > 1" class="ml-2 text-sm bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+          {{ selectedFiles.length }} files
+        </span>
       </h2>
       
       <div class="mb-4">
@@ -125,7 +128,24 @@
           <span class="w-2 h-2 bg-blue-500 rounded-full mr-2 animate-pulse"></span>
           {{ generationProgress.status }}
         </p>
+        <div v-if="generationProgress.totalFiles && generationProgress.totalFiles > 1" class="mt-2 space-y-1">
+          <div class="text-xs text-gray-500">
+            Progress: {{ generationProgress.processedFiles || 0 }} of {{ generationProgress.totalFiles }} files completed
+          </div>
+          <div v-if="generationProgress.currentFile" class="text-xs text-gray-500">
+            Current file: {{ generationProgress.currentFile }}
+          </div>
+          <div v-if="generationProgress.currentStage" class="text-xs text-blue-600 font-medium">
+            Stage: {{ generationProgress.currentStage }}
+          </div>
+        </div>
+        <div v-else-if="generationProgress.currentStage" class="mt-2 text-xs text-blue-600 font-medium">
+          Stage: {{ generationProgress.currentStage }}
+        </div>
       </div>
+	  <div class="mt-2 text-xs text-gray-500 font-medium bg-yellow-100 p-2 rounded-md">
+		This may take a while. Please be patient.
+	  </div>
     </div>
     
     <!-- Error handling now done via toast notification -->
@@ -154,6 +174,11 @@ import ConfigurationWarningModal, { ConfigurationIssue } from '../components/Con
 interface ProgressStatus {
   percentage: number;
   status: string;
+  currentFile?: string | null;
+  totalFiles?: number;
+  processedFiles?: number;
+  currentFileIndex?: number;
+  currentStage?: string;
 }
 
 export default defineComponent({
@@ -267,6 +292,8 @@ export default defineComponent({
       return issues;
     };
 
+
+
     const handleGenerateClick = async () => {
       if (!canGenerate.value) return;
       
@@ -372,6 +399,50 @@ export default defineComponent({
         const savedPrompt = await window.electronAPI.getUserPrompt();
         prompt.value = savedPrompt;
         
+        // Set up progress listener for file queue processing
+        window.electronAPI.onProcessFileQueueProgress((data: { 
+          progress: number; 
+          processingFile: string | null; 
+          currentFileIndex: number; 
+          totalFiles: number; 
+          currentStage: string; 
+          processedFiles: number 
+        }) => {
+          console.log(`Processing ${data.processingFile || 'Unknown'}: ${data.progress}% - Stage: ${data.currentStage}`);
+          
+           const stageLabels: Record<string, string> = {
+             'starting': 'Initializing...',
+             'extracting': 'Processing media file...',
+             'transcribing': 'Converting speech to text...',
+             'generating': 'Creating content index...',
+             'saving': 'Saving results...',
+             'completed': 'File completed!'
+           };
+           
+           let statusMessage = '';
+           if (data.totalFiles > 1) {
+             statusMessage = `File ${data.currentFileIndex}/${data.totalFiles}`;
+             if (data.processingFile) {
+               statusMessage += ` - ${data.processingFile}`;
+             }
+             if (data.currentStage) {
+               statusMessage += ` - ${stageLabels[data.currentStage] || data.currentStage}`;
+             }
+           } else {
+             // Single file
+             if (data.processingFile) {
+               statusMessage = `Processing: ${data.processingFile}`;
+             } else {
+               statusMessage = 'Processing...';
+             }
+             if (data.currentStage) {
+               statusMessage += ` - ${stageLabels[data.currentStage] || data.currentStage}`;
+             }
+           }
+          
+          updateProgress(statusMessage, data.progress, data.processingFile, data.totalFiles, data.processedFiles, data.currentFileIndex, data.currentStage);
+        });
+        
         // Restore progress if generation was in progress
         const savedProgress = localStorage.getItem('generationProgress');
         const wasGenerating = localStorage.getItem('isGenerating') === 'true';
@@ -423,17 +494,30 @@ export default defineComponent({
       }
     };
 
-    const updateProgress = (stage: string, percentage: number) => {
+    const updateProgress = (
+      stage: string, 
+      percentage: number, 
+      currentFile?: string | null, 
+      totalFiles?: number, 
+      processedFiles?: number, 
+      currentFileIndex?: number, 
+      currentStage?: string
+    ) => {
       generationProgress.value = {
         percentage,
-        status: stage
+        status: stage,
+        currentFile,
+        totalFiles: totalFiles || selectedFiles.value.length,
+        processedFiles: processedFiles || Math.floor((percentage / 100) * selectedFiles.value.length),
+        currentFileIndex,
+        currentStage
       };
       
       // Persist progress to localStorage only while generating
       if (isGenerating.value && percentage < 100) {
         localStorage.setItem('generationProgress', JSON.stringify(generationProgress.value));
         localStorage.setItem('isGenerating', 'true');
-        console.log('📊 Progress updated:', stage, `${percentage}%`);
+        console.log('📊 Progress updated:', stage, `${percentage}%`, currentFile ? `- ${currentFile}` : '');
       }
     };
 

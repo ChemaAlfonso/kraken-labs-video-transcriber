@@ -36,6 +36,17 @@ interface ElectronAPI {
 		}>
 	>
 
+	onProcessFileQueueProgress: (
+		callback: (progress: {
+			progress: number
+			processingFile: string | null
+			currentFileIndex: number
+			totalFiles: number
+			currentStage: string
+			processedFiles: number
+		}) => void
+	) => void
+
 	// Results management
 	saveResult: (data: {
 		title: string

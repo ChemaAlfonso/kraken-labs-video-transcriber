@@ -23,6 +23,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
 	// Video processing
 	extractAudio: (videoPath: string) => ipcRenderer.invoke('extract-audio', videoPath),
 	processFileQueue: (params: any) => ipcRenderer.invoke('process-file-queue', params),
+	onProcessFileQueueProgress: (
+		callback: (progress: {
+			progress: number
+			processingFile: string | null
+			currentFileIndex: number
+			totalFiles: number
+			currentStage: string
+			processedFiles: number
+		}) => void
+	) => {
+		ipcRenderer.on('process-file-queue-progress', (_, data) => callback(data))
+	},
 
 	// Results management
 	saveResult: (data: any) => ipcRenderer.invoke('save-result', data),
