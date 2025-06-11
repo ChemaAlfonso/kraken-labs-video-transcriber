@@ -691,6 +691,9 @@ type ProgressStatus = {
 	currentStage?: string
 }
 
+// Global cancellation state
+let isProcessingCancelled = false
+
 const sendProgress = (
 	event: any,
 	filesStatus: ProgressStatus[],
@@ -698,6 +701,12 @@ const sendProgress = (
 	totalFiles: number,
 	currentStage: string = ''
 ) => {
+	// Don't send progress updates if processing was cancelled
+	if (isProcessingCancelled) {
+		console.log('🛑 Skipping progress update due to cancellation')
+		return
+	}
+
 	const totalProcessed = filesStatus.filter(file => file.processed).length
 	const currentFile = filesStatus.find(file => !file.processed)
 
@@ -747,6 +756,9 @@ ipcMain.handle(
 			console.log('📁 Starting queue processing for', filePaths.length, 'files')
 			const results = []
 
+			// Reset cancellation state at the start of a new process
+			isProcessingCancelled = false
+
 			const progressStatus: ProgressStatus[] = filePaths.map((filePath: string) => ({
 				processed: false,
 				currentFilename: filePath
@@ -755,6 +767,27 @@ ipcMain.handle(
 
 			for (let i = 0; i < filePaths.length; i++) {
 				const filePath = filePaths[i]
+
+				// Check for cancellation before processing each file
+				if (isProcessingCancelled) {
+					console.log('🛑 Processing cancelled by user')
+					results.push({
+						success: false,
+						error: 'Processing cancelled by user',
+						file: filePath,
+						title:
+							titles && titles[i]
+								? titles[i]
+								: filePath
+										.split(/[\/\\]/)
+										.pop()
+										?.split('.')
+										.slice(0, -1)
+										.join('.') || ''
+					})
+					break
+				}
+
 				console.log(`🔄 Processing file ${i + 1}/${filePaths.length}:`, filePath)
 
 				// Update progress - starting file
@@ -771,14 +804,17 @@ ipcMain.handle(
 
 				try {
 					// Step 1: Extract/Process Audio
+					if (isProcessingCancelled) throw new Error('Processing cancelled by user')
 					sendProgress(event, progressStatus, i, filePaths.length, 'extracting')
 					const audioPath = await processMediaToAudio(filePath)
 
 					// Step 2: Transcribe Audio
+					if (isProcessingCancelled) throw new Error('Processing cancelled by user')
 					sendProgress(event, progressStatus, i, filePaths.length, 'transcribing')
 					const transcription = await transcribeAudioFile(audioPath, serviceType, language)
 
 					// Step 3: Generate Content
+					if (isProcessingCancelled) throw new Error('Processing cancelled by user')
 					sendProgress(event, progressStatus, i, filePaths.length, 'generating')
 					const index = await generateContentIndex(transcription, prompt, language, aiServiceType)
 
@@ -786,6 +822,7 @@ ipcMain.handle(
 					const systemPrompt = await db.getSystemPrompt()
 
 					// Step 4: Save Results
+					if (isProcessingCancelled) throw new Error('Processing cancelled by user')
 					sendProgress(event, progressStatus, i, filePaths.length, 'saving')
 					const savedResult = await db.saveTranscriptionResult({
 						title: title,
@@ -808,6 +845,7 @@ ipcMain.handle(
 
 					console.log(`✅ File ${i + 1}/${filePaths.length} processed successfully:`, title)
 				} catch (error: any) {
+					if (isProcessingCancelled) continue
 					console.error(`❌ Error processing file ${i + 1}/${filePaths.length}:`, error)
 					results.push({
 						success: false,
@@ -817,9 +855,11 @@ ipcMain.handle(
 					})
 				}
 
-				// Mark file as processed and send final progress for this file
+				// Mark file as processed and send final progress for this file (only if not cancelled)
 				progressStatus[i].processed = true
-				sendProgress(event, progressStatus, i + 1, filePaths.length, 'completed')
+				if (!isProcessingCancelled) {
+					sendProgress(event, progressStatus, i + 1, filePaths.length, 'completed')
+				}
 			}
 
 			console.log(
@@ -835,3 +875,10 @@ ipcMain.handle(
 		}
 	}
 )
+
+// Cancel processing handler
+ipcMain.handle('cancel-file-queue-processing', async () => {
+	console.log('🛑 Cancellation requested by user')
+	isProcessingCancelled = true
+	return { success: true }
+})

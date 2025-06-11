@@ -188,8 +188,19 @@
           Stage: {{ generationProgress.currentStage }}
         </div>
       </div>
-	  <div class="mt-2 text-xs text-gray-500 font-medium bg-yellow-100 p-2 rounded-md">
-		This may take a while. Please be patient.
+	  <div class="mt-4 flex items-center justify-between">
+		<div class="text-xs text-gray-500 font-medium bg-yellow-100 p-2 rounded-md flex-1">
+		  This may take a while. Please be patient.
+		</div>
+		<button 
+		  @click="handleCancelGeneration"
+		  class="ml-4 px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-sm font-medium rounded-lg transition-colors duration-200 flex items-center"
+		  :disabled="isCancelling"
+		>
+		  <span v-if="isCancelling" class="animate-spin mr-2">⏳</span>
+		  <span v-else class="mr-2">🛑</span>
+		  {{ isCancelling ? 'Cancelling...' : 'Cancel' }}
+		</button>
 	  </div>
     </div>
     
@@ -238,6 +249,8 @@ export default defineComponent({
     const language = ref('es');
     const prompt = ref('Create a detailed table of contents for this media with timestamps, highlighting the main topics and subtopics discussed. Use the transcription below:\n\n{transcription}');
     const isGenerating = ref(false);
+    const isCancelling = ref(false);
+    const wasCancelled = ref(false);
     const generationProgress = ref<ProgressStatus | null>(null);
     const error = ref('');
     const showConfigModal = ref(false);
@@ -409,6 +422,7 @@ export default defineComponent({
       }
       
       isGenerating.value = true;
+      wasCancelled.value = false;
       error.value = '';
       
       // Clear any previous progress state
@@ -456,14 +470,20 @@ export default defineComponent({
 			
 			// Show summary
 			if (failCount > 0) {
-				error.value = `Processed ${successCount} files successfully, ${failCount} files failed. Check console for details.`;
+				if (wasCancelled.value) {
+					error.value = `Generation cancelled by user. Background processes may continue briefly.`;
+				} else {
+					error.value = `Processed ${successCount} files successfully, ${failCount} files failed. Check console for details.`;
+				}
 				console.error('Failed files:', results.filter(r => !r.success));
 			}
 		   
-			// Clear progress and navigate after a short delay
+			// Clear progress and navigate after a short delay (only if not cancelled)
 			setTimeout(() => {
 				clearProgress();
-				router.push('/generations');
+				if (!wasCancelled.value) {
+					router.push('/generations');
+				}
 			}, 2000);
         } else {
 			error.value = 'No media file(s) selected';
@@ -480,6 +500,8 @@ export default defineComponent({
         clearProgress();
       } finally {
         isGenerating.value = false;
+        isCancelling.value = false;
+        // Note: Don't reset wasCancelled here as it's used to prevent redirecting
       }
     };
 
@@ -510,6 +532,12 @@ export default defineComponent({
           currentStage: string; 
           processedFiles: number 
         }) => {
+          // Ignore progress updates if generation was cancelled
+          if (wasCancelled.value) {
+            console.log('🛑 Ignoring progress update due to cancellation');
+            return;
+          }
+          
           console.log(`Processing ${data.processingFile || 'Unknown'}: ${data.progress}% - Stage: ${data.currentStage}`);
           
            const stageLabels: Record<string, string> = {
@@ -572,6 +600,9 @@ export default defineComponent({
         const selected = await window.electronAPI.openVideoDialog();
         
         if (selected && selected.length > 0) {
+          // Reset any previous generation state when selecting new files
+          resetGenerationState();
+          
           // Store file paths and create display objects
           selectedFiles.value = selected.map(filePath => {
             const parts = filePath.split(/[\/\\]/);
@@ -605,6 +636,12 @@ export default defineComponent({
       currentFileIndex?: number, 
       currentStage?: string
     ) => {
+      // Don't update progress if generation was cancelled
+      if (wasCancelled.value) {
+        console.log('🛑 Skipping progress update in updateProgress due to cancellation');
+        return;
+      }
+
       generationProgress.value = {
         percentage,
         status: stage,
@@ -631,6 +668,44 @@ export default defineComponent({
       console.log('🧹 Progress cleared from localStorage');
     };
 
+    const resetGenerationState = () => {
+      isGenerating.value = false;
+      isCancelling.value = false;
+      wasCancelled.value = false;
+      clearProgress();
+      console.log('🔄 Generation state reset');
+    };
+
+    const handleCancelGeneration = async () => {
+      if (!isGenerating.value || isCancelling.value) return;
+      
+      isCancelling.value = true;
+      console.log('🛑 User requested cancellation');
+      
+      try {
+        await window.electronAPI.cancelFileQueueProcessing();
+        // Show cancelling message before setting wasCancelled
+        updateProgress('Cancelling...', generationProgress.value?.percentage || 0);
+        
+        // Set cancelled flag after showing the cancelling message
+        wasCancelled.value = true;
+        
+        // Clear progress after a short delay to show cancellation message
+        setTimeout(() => {
+          clearProgress();
+          isGenerating.value = false;
+          isCancelling.value = false;
+          error.value = 'Generation cancelled by user. Background processes may continue briefly.';
+          // Keep wasCancelled true to prevent redirection, it will be reset when user starts new generation
+        }, 1000);
+      } catch (err) {
+        console.error('Error cancelling generation:', err);
+        error.value = 'Error cancelling generation';
+        isCancelling.value = false;
+        wasCancelled.value = false;
+      }
+    };
+
     const saveUserPrompt = async () => {
       try {
         await window.electronAPI.setUserPrompt(prompt.value);
@@ -647,6 +722,7 @@ export default defineComponent({
       prompt,
 	  removeFile,
       isGenerating,
+      isCancelling,
       generationProgress,
       canGenerate,
       error,
@@ -661,10 +737,12 @@ export default defineComponent({
       onUserPromptChange,
       openFileDialog,
       handleGenerateClick,
+      handleCancelGeneration,
       closeConfigModal,
       goToConfiguration,
       saveUserPrompt,
-      clearProgress
+      clearProgress,
+      resetGenerationState
     };
   }
 });

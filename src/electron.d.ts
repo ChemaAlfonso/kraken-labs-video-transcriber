@@ -52,6 +52,8 @@ interface ElectronAPI {
 		}>
 	>
 
+	cancelFileQueueProcessing: () => Promise<{ success: boolean }>
+
 	onProcessFileQueueProgress: (
 		callback: (progress: {
 			progress: number
