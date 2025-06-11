@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2025-06-11
 ### Added
 
 -   **Generation Cancellation**: Implemented comprehensive cancellation functionality for the generation process with immediate UI feedback and clean state management
