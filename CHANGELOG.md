@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2025-06-11
 ### Added
 
 -   **External Whisper Service**: Implemented Whisper transcription external service with FastAPI, Docker support, and example configuration for local deployment
