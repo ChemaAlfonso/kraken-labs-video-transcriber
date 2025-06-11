@@ -87,7 +87,7 @@
           Processing...
         </span>
         <span v-else>
-          Generate Content Index
+          Generate Content
         </span>
       </button>
     </div>
@@ -414,7 +414,7 @@ export default defineComponent({
              'starting': 'Initializing...',
              'extracting': 'Processing media file...',
              'transcribing': 'Converting speech to text...',
-             'generating': 'Creating content index...',
+             'generating': 'Generating content...',
              'saving': 'Saving results...',
              'completed': 'File completed!'
            };

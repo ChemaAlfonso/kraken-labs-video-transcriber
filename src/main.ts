@@ -163,7 +163,7 @@ ipcMain.handle('get-system-prompt', async () => {
 		return await db.getSystemPrompt()
 	} catch (error) {
 		console.error('Error getting system prompt:', error)
-		return 'You are an assistant that creates detailed and accurate content indexes from video transcriptions. Focus on creating clear, organized, and timestamped content indexes that help users quickly understand and navigate the video content.'
+		return 'You are an assistant that creates detailed and accurate content analysis from transcriptions. Focus on creating clear, organized, and helpful content that helps users quickly understand and navigate the source material.'
 	}
 })
 
@@ -257,7 +257,7 @@ ipcMain.handle('get-ffmpeg-info', async () => {
 // Regenerate index handler
 ipcMain.handle('regenerate-index', async (_, { id, transcription, language, prompt }) => {
 	try {
-		console.log('🔄 Starting index regeneration process for ID:', id)
+		console.log('🔄 Starting content regeneration process for ID:', id)
 		console.log('📋 Parameters:', {
 			transcriptionLength: transcription.length,
 			language,
@@ -281,8 +281,8 @@ ipcMain.handle('regenerate-index', async (_, { id, transcription, language, prom
 		const systemPrompt = await db.getSystemPrompt()
 		console.log('✅ System prompt loaded, length:', systemPrompt.length, 'characters')
 
-		// Generate the new index
-		console.log('🤖 Starting index regeneration...')
+		// Generate the new content
+		console.log('🤖 Starting content regeneration...')
 		const result = await aiService.regenerateIndex(
 			{
 				userPrompt: prompt,
@@ -293,7 +293,7 @@ ipcMain.handle('regenerate-index', async (_, { id, transcription, language, prom
 			generationService,
 			aiConfig
 		)
-		console.log('✅ Index regeneration completed, length:', result.index.length, 'characters')
+		console.log('✅ Content regeneration completed, length:', result.index.length, 'characters')
 
 		// Update the result in the database
 		console.log('💾 Updating result in database...')
@@ -309,7 +309,7 @@ ipcMain.handle('regenerate-index', async (_, { id, transcription, language, prom
 			prompt: prompt
 		}
 	} catch (error: any) {
-		console.error('❌ Error in index regeneration process:', error)
+		console.error('❌ Error in content regeneration process:', error)
 		return {
 			success: false,
 			error: error.message || 'Unknown error occurred'
@@ -452,7 +452,7 @@ const transcribeAudioFile = async (audioPath: string, serviceType: string, langu
 	}
 }
 
-// Step 3: Generate index/content using AI
+// Step 3: Generate content using AI
 const generateContentIndex = async (
 	transcription: string,
 	prompt: string,
@@ -473,8 +473,8 @@ const generateContentIndex = async (
 		const systemPrompt = await db.getSystemPrompt()
 		console.log('✅ System prompt loaded, length:', systemPrompt.length, 'characters')
 
-		// Generate the index
-		console.log('🤖 Starting index generation...')
+		// Generate the content
+		console.log('🤖 Starting content generation...')
 		const result = await aiService.generateIndex(
 			{
 				userPrompt: prompt,
@@ -485,11 +485,11 @@ const generateContentIndex = async (
 			aiServiceType,
 			aiConfig
 		)
-		console.log('✅ Index generation completed, length:', result.index.length, 'characters')
+		console.log('✅ Content generation completed, length:', result.index.length, 'characters')
 
 		return result.index
 	} catch (error) {
-		console.error('❌ Error in index generation:', error)
+		console.error('❌ Error in content generation:', error)
 		throw error
 	}
 }
@@ -587,7 +587,7 @@ ipcMain.handle(
 					sendProgress(event, progressStatus, i, filePaths.length, 'transcribing')
 					const transcription = await transcribeAudioFile(audioPath, serviceType, language)
 
-					// Step 3: Generate Index
+					// Step 3: Generate Content
 					sendProgress(event, progressStatus, i, filePaths.length, 'generating')
 					const index = await generateContentIndex(transcription, prompt, language, aiServiceType)
 

@@ -28,7 +28,7 @@
               <option value="openai">OpenAI GPT</option>
               <option value="custom">Custom API (OpenAI Compatible)</option>
             </select>
-            <p class="text-xs text-gray-500 mt-1">Service used for content index generation</p>
+            <p class="text-xs text-gray-500 mt-1">Service used for content generation</p>
           </div>
         </div>
       </div>

@@ -19,14 +19,14 @@ interface GenerationResult {
 }
 
 /**
- * Generate index using AI service
+ * Generate content using AI service
  */
 export async function generateIndex(
 	request: GenerationRequest,
 	serviceType: string,
 	config: AIConfig
 ): Promise<GenerationResult> {
-	console.log('🤖 AI Index Generation request:')
+	console.log('🤖 AI Content Generation request:')
 	console.log('   Service Type:', serviceType)
 	console.log('   Language:', request.language)
 	console.log('   Model:', config.model)
@@ -45,14 +45,14 @@ export async function generateIndex(
 }
 
 /**
- * Regenerate index using AI service
+ * Regenerate content using AI service
  */
 export async function regenerateIndex(
 	request: GenerationRequest,
 	serviceType: string,
 	config: AIConfig
 ): Promise<GenerationResult> {
-	console.log('🔄 AI Index Regeneration request:')
+	console.log('🔄 AI Content Regeneration request:')
 	console.log('   Service Type:', serviceType)
 	console.log('   Language:', request.language)
 	console.log('   Model:', config.model)
@@ -62,7 +62,7 @@ export async function regenerateIndex(
 }
 
 /**
- * Generate index using OpenAI API
+ * Generate content using OpenAI API
  */
 async function generateWithOpenAI(request: GenerationRequest, config: AIConfig): Promise<GenerationResult> {
 	const { apiKey, model, temperature = 1 } = config
@@ -99,19 +99,19 @@ async function generateWithOpenAI(request: GenerationRequest, config: AIConfig):
 		})
 
 		const result = response.data.choices[0].message.content
-		console.log('✅ OpenAI index generation completed, length:', result.length, 'characters')
+		console.log('✅ OpenAI content generation completed, length:', result.length, 'characters')
 
 		return {
 			index: result
 		}
 	} catch (error: any) {
-		console.error('❌ OpenAI index generation error:', error.response?.data || error.message)
-		throw new Error(`Failed to generate index with OpenAI: ${error.message}`)
+		console.error('❌ OpenAI content generation error:', error.response?.data || error.message)
+		throw new Error(`Failed to generate content with OpenAI: ${error.message}`)
 	}
 }
 
 /**
- * Generate index using custom OpenAI-compatible API
+ * Generate content using custom OpenAI-compatible API
  */
 async function generateWithCustomAPI(request: GenerationRequest, config: AIConfig): Promise<GenerationResult> {
 	const { apiKey, model, host, temperature = 1 } = config
@@ -154,13 +154,13 @@ async function generateWithCustomAPI(request: GenerationRequest, config: AIConfi
 		const response = await axios.post(endpoint, requestData, { headers })
 
 		const result = response.data.choices[0].message.content
-		console.log('✅ Custom API index generation completed, length:', result.length, 'characters')
+		console.log('✅ Custom API content generation completed, length:', result.length, 'characters')
 
 		return {
 			index: result
 		}
 	} catch (error: any) {
-		console.error('❌ Custom API index generation error:', error.response?.data || error.message)
-		throw new Error(`Failed to generate index with custom API: ${error.message}`)
+		console.error('❌ Custom API content generation error:', error.response?.data || error.message)
+		throw new Error(`Failed to generate content with custom API: ${error.message}`)
 	}
 }

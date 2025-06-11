@@ -3,7 +3,7 @@
     <h1 class="text-2xl font-bold mb-6">Previous Generations</h1>
     
     <div v-if="generations.length === 0" class="bg-white shadow rounded-lg p-6 text-center">
-      <p class="text-gray-500">No generations found. Start by generating a content index from a video.</p>
+      <p class="text-gray-500">No generations found. Start by generating content from a video.</p>
       <button 
         @click="navigateToGenerator" 
         class="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
@@ -178,7 +178,7 @@
         
         <div class="flex-1 overflow-auto p-6">
           <div class="mb-6">
-            <h3 class="text-lg font-semibold mb-2">Timestamps & Content Index</h3>
+            <h3 class="text-lg font-semibold mb-2">Generated Content</h3>
             <div class="bg-gray-50 p-4 rounded border text-sm markdown-content">
               <div v-html="renderedIndex"></div>
             </div>
@@ -210,7 +210,7 @@
               @click="showRegenerateConfirmation(selectedGeneration.id)"
               class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
             >
-              Regenerate Index
+              Regenerate Content
             </button>
             <button 
               @click="exportGeneration(selectedGeneration.id)"
@@ -291,7 +291,7 @@
               </label>
             </div>
             <p class="text-xs text-gray-500 mt-1 ml-6">
-              Uncheck to export only the content index without the full transcription
+              Uncheck to export only the generated content without the full transcription
             </p>
           </div>
         </div>
@@ -303,7 +303,7 @@
       <div class="bg-white rounded-lg shadow-xl w-full max-w-md">
         <div class="p-6 border-b">
           <div class="flex justify-between items-center">
-            <h2 class="text-xl font-bold">Regenerate Index</h2>
+            <h2 class="text-xl font-bold">Regenerate Content</h2>
             <button @click="closeRegenerateModal" class="text-gray-500 hover:text-gray-700">
               ✕
             </button>
@@ -318,10 +318,10 @@
               </svg>
             </div>
             <div class="ml-3">
-              <h3 class="text-lg font-medium text-gray-900">Replace Current Index</h3>
+              <h3 class="text-lg font-medium text-gray-900">Replace Current Content</h3>
               <p class="mt-2 text-sm text-gray-600">
-                This action will regenerate the content index using the existing transcription. 
-                <strong>The current index will be permanently replaced.</strong>
+                This action will regenerate the content using the existing transcription. 
+                <strong>The current content will be permanently replaced.</strong>
               </p>
             </div>
           </div>
@@ -377,7 +377,7 @@
             class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <span v-if="isRegenerating">Regenerating...</span>
-            <span v-else>Regenerate Index</span>
+            <span v-else>Regenerate Content</span>
           </button>
         </div>
       </div>
