@@ -18,11 +18,6 @@
 	"main": ".vite/build/main.js",
 	"scripts": {
 		"dev": "electron-forge start",
-		"build": "electron-forge package",
-		"build:macos": "electron-forge package --platform=darwin",
-		"build:windows": "electron-forge package --platform=win32 --arch=x64",
-		"build:linux": "electron-forge package --platform=linux --arch=x64",
-		"build:all": "node scripts/build-all-platforms.js",
 		"make": "electron-forge make",
 		"make:macos": "electron-forge make --platform=darwin",
 		"make:windows": "electron-forge make --platform=win32 --arch=x64",
