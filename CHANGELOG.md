@@ -7,7 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+-   **Generation Cancellation**: Implemented comprehensive cancellation functionality for the generation process with immediate UI feedback and clean state management
+    -   Added cancel button to generation progress loader with visual feedback ("Cancelling..." state)
+    -   Ensured users stay on generator page instead of being redirected after cancellation
+    -   Added informative error messages explaining background processes may continue briefly
+
+### Fixed
+
 ## [0.7.1] - 2025-06-11
+
 ### Added
 
 -   **Comprehensive CHANGELOG.md**: Created structured changelog following Keep a Changelog format with automatic release integration
